@@ -127,6 +127,8 @@ DEFAULT_CONFIG = {
     "taskbar_clock_offset": None,   # مکان ذخیره‌شده ساعت روی تسک‌بار (فاصله از لبه راست)
     "taskbar_button": False,        # نمایش دکمه/آیکون برنامه در تسک‌بار
     "snap_side": "right",           # جهت چسبیدن به لبه صفحه در حالت قفل ('right' یا 'left')
+    "primary_timezone": "tehran",   # 'tehran' یا 'utc' (تایم اصلی ویجت بدون نمایش +03:30)
+    "show_utc": False,              # نمایش ردیف مجزای ساعت و تاریخ UTC در ویجت برای برنامه‌نویسان
 }
 
 
@@ -434,7 +436,7 @@ class PersianClockWidget:
         self.sync_taskbar_features()
 
     def minimize_widget(self):
-        """مخفی کردن ویجت از صفحه دسکتاپ و نمایش فقط در تسک‌بار و Hidden Icons"""
+        """مخفی کردن ویجت از صفحه دسکتاپ و تسک‌بار؛ فقط در Hidden Icons (سینی سیستم)"""
         self._is_minimized = True
         self._close_dev_popup_window()
         if self.widget_win:
@@ -443,14 +445,11 @@ class PersianClockWidget:
             self.lock_win.withdraw()
         if self.cal_win:
             self.cal_win.withdraw()
-        # اطمینان از حضور دکمه در تسک‌بار تا کاربر بتواند با یک کلیک آن را بازگرداند
-        if self.taskbar_proxy is None:
-            self.taskbar_proxy = TaskbarButtonProxy(self)
+        # هنگام مینیمایز یا بستن، هیچ آیکونی در تسک‌بار نمایش داده نشود (فقط در Hidden Icons بماند)
+        if self.taskbar_proxy is not None:
+            self.taskbar_proxy.destroy()
+            self.taskbar_proxy = None
         info = get_today_info(CUSTOM_OCCASIONS_PATH)
-        use_fa = self.config.get("persian_digits", False)
-        self.taskbar_proxy.update_title(
-            format_digits(f"{info['time_str'][:5]} | {info['date_text']}", use_fa)
-        )
         if getattr(self, "taskbar_clock", None) is not None:
             try:
                 self.taskbar_clock.refresh(info)
@@ -582,6 +581,8 @@ class PersianClockWidget:
         self.widget_win = tk.Toplevel(self.root)
         self.widget_win.title("ویجت ساعت و تقویم")
         self.widget_win.overrideredirect(True)
+        self.widget_win.protocol("WM_DELETE_WINDOW", self.minimize_widget)
+        self.root.protocol("WM_DELETE_WINDOW", self.minimize_widget)
 
         bg = TRANSPARENT_KEY if self.config["transparent_bg"] else self.config["bg_color"]
         self.widget_win.configure(bg=bg)
@@ -671,6 +672,29 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
+        # ۳.۵. دکمه سوییچ سریع تایم‌زون اصلی بین تهران و UTC (بدون نمایش +03:30)
+        is_utc_primary = self.config.get("primary_timezone", "tehran") == "utc"
+        self.tz_btn = tk.Label(
+            self.btn_container,
+            text="UTC" if is_utc_primary else "TEH",
+            font=("Consolas", 8, "bold"),
+            fg="#38BDF8" if is_utc_primary else "#E2E8F0",
+            bg="#1E2638",
+            padx=5,
+            pady=2,
+            cursor="hand2",
+        )
+        self.tz_btn.pack(side="left", padx=(0, 3))
+        self.tz_btn.bind("<Button-1>", self._toggle_primary_timezone)
+        self.tz_btn.bind("<Double-Button-1>", lambda e: "break")
+        self._attach_hover(
+            self.tz_btn,
+            "تبدیل سریع ساعت اصلی بین تهران و UTC (بدون نمایش +03:30)",
+            base_fg_fn=lambda: "#38BDF8" if self.config.get("primary_timezone", "tehran") == "utc" else "#E2E8F0",
+            hover_bg="#0284C7",
+            hover_fg="#FFFFFF",
+        )
+
         # ۴. دکمه مدیریت رویدادها و آلارم‌ها
         self.alarm_btn = tk.Label(
             self.btn_container,
@@ -715,7 +739,7 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
-        # ۶. دکمه مینیمایز (مخفی کردن از صفحه؛ فقط در تسک‌بار و Hidden Icons)
+        # ۶. دکمه مینیمایز و بستن به Hidden Icons (بدون آیکون در تسک‌بار)
         self.min_btn = tk.Label(
             self.btn_container,
             text="🗕",
@@ -726,14 +750,36 @@ class PersianClockWidget:
             pady=2,
             cursor="hand2",
         )
-        self.min_btn.pack(side="left")
+        self.min_btn.pack(side="left", padx=(0, 2))
         self.min_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
         self.min_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.min_btn,
-            "مینیمایز ویجت (نمایش فقط در تسک‌بار و Hidden Icons)",
+            "مینیمایز به Hidden Icons (بدون آیکون در تسک‌بار)",
             base_fg_fn=lambda: self.config.get("date_color", "#CBD5E1"),
             hover_bg="#475569",
+            hover_fg="#FFFFFF",
+        )
+
+        # ۷. دکمه بستن ویجت (انتقال به Hidden Icons؛ برای خروج کامل از راست‌کلیک سینی سیستم استفاده کنید)
+        self.close_btn = tk.Label(
+            self.btn_container,
+            text="✕",
+            font=("Segoe UI", 8, "bold"),
+            fg="#FCA5A5",
+            bg="#1E2638",
+            padx=5,
+            pady=2,
+            cursor="hand2",
+        )
+        self.close_btn.pack(side="left")
+        self.close_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
+        self.close_btn.bind("<Double-Button-1>", lambda e: "break")
+        self._attach_hover(
+            self.close_btn,
+            "بستن ویجت روی دسکتاپ (ارسال به Hidden Icons)",
+            base_fg_fn=lambda: "#FCA5A5",
+            hover_bg="#DC2626",
             hover_fg="#FFFFFF",
         )
 
@@ -763,6 +809,44 @@ class PersianClockWidget:
         new_guid = str(uuid.uuid4())
         self._copy_to_clipboard(new_guid, f"✓ GUID کپی شد!")
         return "break"
+
+    def _update_tz_btn_appearance(self):
+        if hasattr(self, "tz_btn") and self.tz_btn.winfo_exists():
+            is_utc = self.config.get("primary_timezone", "tehran") == "utc"
+            self.tz_btn.configure(
+                text="UTC" if is_utc else "TEH",
+                fg="#38BDF8" if is_utc else "#E2E8F0",
+                bg=self._get_btn_base_bg(),
+            )
+
+    def _toggle_primary_timezone(self, event=None):
+        """سوییچ سریع ساعت اصلی ویجت بین تهران و UTC (بدون نمایش +03:30)"""
+        if event is not None and self.config.get("locked", False):
+            return "break"
+        cur = self.config.get("primary_timezone", "tehran")
+        new_tz = "utc" if cur != "utc" else "tehran"
+        self.config["primary_timezone"] = new_tz
+        self._save_config()
+        self._update_tz_btn_appearance()
+        var = getattr(self, "_settings_primary_tz_var", None)
+        if var is not None:
+            try:
+                var.set(new_tz)
+            except Exception:
+                pass
+        self._refresh_display()
+        return "break"
+
+    def _toggle_show_utc(self):
+        self.config["show_utc"] = not bool(self.config.get("show_utc", False))
+        self._save_config()
+        var = getattr(self, "_settings_show_utc_var", None)
+        if var is not None:
+            try:
+                var.set(bool(self.config["show_utc"]))
+            except Exception:
+                pass
+        self._refresh_display()
 
     def _build_lock_badge_window(self):
         self.lock_win = tk.Toplevel(self.root)
@@ -2070,11 +2154,15 @@ class PersianClockWidget:
             bg=btn_bg,
             fg=self.config.get("date_color", "#CBD5E1"),
         )
+        if hasattr(self, "tz_btn"):
+            self._update_tz_btn_appearance()
         if hasattr(self, "min_btn"):
             self.min_btn.configure(
                 bg=btn_bg,
                 fg=self.config.get("date_color", "#CBD5E1"),
             )
+        if hasattr(self, "close_btn"):
+            self.close_btn.configure(bg=btn_bg, fg="#FCA5A5")
 
         self._refresh_display()
 
@@ -2205,9 +2293,24 @@ class PersianClockWidget:
             )
         else:
             self.menu.add_command(
-                label="🗕 مینیمایز ویجت (نمایش فقط در تسک‌بار و Hidden Icons)",
+                label="🗕 مینیمایز / بستن به Hidden Icons (بدون آیکون در تسک‌بار)",
                 command=self.minimize_widget,
             )
+        self.menu.add_separator()
+
+        is_utc_primary = self.config.get("primary_timezone", "tehran") == "utc"
+        tz_label = (
+            "🕒 ساعت اصلی: UTC (تبدیل به تهران)"
+            if is_utc_primary
+            else "🕒 ساعت اصلی: تهران (تبدیل به UTC)"
+        )
+        self.menu.add_command(label=tz_label, command=self._toggle_primary_timezone)
+        utc_row_label = (
+            "✓ 🌐 نمایش ردیف زمان UTC/تهران در ویجت (فعال)"
+            if self.config.get("show_utc")
+            else "🌐 نمایش ردیف زمان UTC در ویجت"
+        )
+        self.menu.add_command(label=utc_row_label, command=self._toggle_show_utc)
         self.menu.add_separator()
 
         self.menu.add_command(
@@ -2983,6 +3086,66 @@ class PersianClockWidget:
             command=on_tb_reset_pos,
         ).pack(side="left")
 
+        # بخش ۶: تنظیمات تایم‌زون اصلی (تهران / UTC) و نمایش UTC برای برنامه‌نویسان
+        sec6 = tk.LabelFrame(
+            container,
+            text=" ۶. تایم‌زون اصلی و نمایش UTC (ویژه برنامه‌نویسان و سرور) ",
+            font=(font_fa, 9, "bold"),
+            fg="#38BDF8",
+            bg="#1E293B",
+            bd=1,
+            padx=10,
+            pady=6,
+        )
+        sec6.pack(fill="x", pady=(0, 8))
+
+        self._settings_primary_tz_var = tk.StringVar(
+            value=self.config.get("primary_timezone", "tehran")
+        )
+        self._settings_show_utc_var = tk.BooleanVar(
+            value=bool(self.config.get("show_utc", False))
+        )
+
+        def on_tz_settings_change():
+            self.config["primary_timezone"] = self._settings_primary_tz_var.get()
+            self.config["show_utc"] = bool(self._settings_show_utc_var.get())
+            self._save_config()
+            self._update_tz_btn_appearance()
+            self._refresh_display()
+
+        tz_radio_row = tk.Frame(sec6, bg="#1E293B")
+        tz_radio_row.pack(fill="x", pady=(0, 3))
+        for tz_val, tz_txt in (
+            ("tehran", "🇮🇷 ساعت اصلی: تهران (شمسی)"),
+            ("utc", "🌐 ساعت اصلی: UTC (تایم سرور، بدون +03:30)"),
+        ):
+            tk.Radiobutton(
+                tz_radio_row,
+                text=tz_txt,
+                variable=self._settings_primary_tz_var,
+                value=tz_val,
+                command=on_tz_settings_change,
+                font=(font_fa, 8, "bold"),
+                fg="#F8FAFC",
+                bg="#1E293B",
+                selectcolor="#0F172A",
+                activebackground="#1E293B",
+                activeforeground="#38BDF8",
+            ).pack(side="left", padx=(0, 14))
+
+        tk.Checkbutton(
+            sec6,
+            text="🕒 نمایش ردیف ساعت و تاریخ UTC (یا ساعت تهران در حالت UTC) داخل ویجت",
+            variable=self._settings_show_utc_var,
+            command=on_tz_settings_change,
+            font=(font_fa, 8),
+            fg="#A7F3D0",
+            bg="#1E293B",
+            selectcolor="#0F172A",
+            activebackground="#1E293B",
+            anchor="w",
+        ).pack(fill="x", pady=(2, 0))
+
         bottom_bar = tk.Frame(container, bg="#0F172A")
         bottom_bar.pack(fill="x", pady=(8, 0))
 
@@ -3132,8 +3295,32 @@ class PersianClockWidget:
         else:
             self.canvas.itemconfigure(self._toolbar_win_id, state="hidden")
 
-        time_str = format_digits(info["time_str"], use_fa)
-        date_str = format_digits(info["date_text"], use_fa)
+        primary_tz = self.config.get("primary_timezone", "tehran")
+        show_utc = bool(self.config.get("show_utc", False))
+        now_utc = datetime.now(timezone.utc)
+
+        if primary_tz == "utc":
+            time_str = format_digits(now_utc.strftime("%H:%M"), use_fa)
+            date_str = format_digits(f"UTC  •  {now_utc.strftime('%Y-%m-%d')}", use_fa)
+            date_fill = self.config.get("accent_color", "#38BDF8")
+            utc_line_str = (
+                format_digits(f"TEH {info['time_str']}:{info['second']:02d} • {info['date_text']}", use_fa)
+                if show_utc
+                else ""
+            )
+        else:
+            time_str = format_digits(info["time_str"], use_fa)
+            date_str = format_digits(info["date_text"], use_fa)
+            date_fill = (
+                self.config.get("holiday_color", "#F87171")
+                if info["is_holiday"]
+                else self.config.get("date_color", "#CBD5E1")
+            )
+            utc_line_str = (
+                format_digits(f"UTC {now_utc.strftime('%H:%M:%S')} • {now_utc.strftime('%Y-%m-%d')}", use_fa)
+                if show_utc
+                else ""
+            )
 
         today_alarms = self.alarm_store.get_events_for_jalali_day(
             info["jy"], info["jm"], info["jd"], info["persian_week_idx"]
@@ -3155,6 +3342,13 @@ class PersianClockWidget:
         time_w, time_h = tb_t[2] - tb_t[0], tb_t[3] - tb_t[1]
         date_w, date_h = tb_d[2] - tb_d[0], tb_d[3] - tb_d[1]
 
+        utc_w, utc_h = 0, 0
+        if utc_line_str:
+            tmp_u = self.canvas.create_text(0, 0, text=utc_line_str, font=("Consolas", max(7, o_size), "bold"), anchor="nw")
+            tb_u = self.canvas.bbox(tmp_u) or (0, 0, 140, 16)
+            utc_w, utc_h = tb_u[2] - tb_u[0], tb_u[3] - tb_u[1]
+            self.canvas.delete(tmp_u)
+
         occ_w, occ_h = 0, 0
         if occ_str:
             tmp_o = self.canvas.create_text(0, 0, text=occ_str, font=(font_fa, o_size), anchor="nw")
@@ -3167,11 +3361,11 @@ class PersianClockWidget:
 
         if is_locked:
             top_needed_w = self.LOCK_OFFSET_X + self.LOCK_BTN_SIZE + 10 + time_w + 14
-            body_needed_w = max(date_w, occ_w) + 24
+            body_needed_w = max(date_w, utc_w, occ_w) + 24
             target_w = max(top_needed_w, body_needed_w, int(130 * scale))
         else:
             top_needed_w = toolbar_right + time_w + 38
-            body_needed_w = max(date_w, occ_w) + 32
+            body_needed_w = max(date_w, utc_w, occ_w) + 32
             target_w = max(int(self.BASE_MIN_W * scale), top_needed_w, body_needed_w)
 
         right_x = target_w - 14
@@ -3197,15 +3391,30 @@ class PersianClockWidget:
             cur_y,
             text=date_str,
             font_spec=(font_fa, d_size, "bold"),
-            fill=self.config.get("holiday_color", "#F87171")
-            if info["is_holiday"]
-            else self.config.get("date_color", "#CBD5E1"),
+            fill=date_fill,
             outline="#000000",
             anchor="ne",
             justify="right",
             tags="drawn_text",
         )
-        cur_y += date_h + 5
+        cur_y += date_h + 4
+
+        if utc_line_str:
+            draw_outlined_canvas_text(
+                self.canvas,
+                right_x,
+                cur_y,
+                text=utc_line_str,
+                font_spec=("Consolas", max(7, o_size), "bold"),
+                fill="#38BDF8" if primary_tz != "utc" else "#A7F3D0",
+                outline="#000000",
+                anchor="ne",
+                justify="right",
+                tags="drawn_text",
+            )
+            cur_y += utc_h + 4
+        else:
+            cur_y += 1
 
         if occ_str:
             draw_outlined_canvas_text(
