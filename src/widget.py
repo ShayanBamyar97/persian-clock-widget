@@ -1112,23 +1112,22 @@ class PersianClockWidget:
         wy = self.widget_win.winfo_y()
         ww = self.compact_w
         wh = self.compact_h
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
+        ml, mt, mr, mb = get_monitor_work_area_at(wx + ww // 2, wy + wh // 2, self.root)
 
         # قرارگیری با فاصله ۱۲ پیکسلی در پایین یا بالای ویجت (بدون همپوشانی با خود ویجت)
         px = wx + ww - pw
-        px = max(10, min(px, screen_w - pw - 10))
-        if wy + wh + 12 + ph <= screen_h - 40:
+        px = max(ml + 10, min(px, mr - pw - 10))
+        if wy + wh + 12 + ph <= mb - 8:
             py = wy + wh + 12
-        elif wy - ph - 12 >= 10:
+        elif wy - ph - 12 >= mt + 10:
             py = wy - ph - 12
         else:
             # در کنار ویجت با فاصله ۱۲ پیکسل
-            if wx - pw - 12 >= 10:
+            if wx - pw - 12 >= ml + 10:
                 px = wx - pw - 12
             else:
-                px = min(screen_w - pw - 10, wx + ww + 12)
-            py = max(10, min(wy, screen_h - ph - 40))
+                px = min(mr - pw - 10, wx + ww + 12)
+            py = max(mt + 10, min(wy, mb - ph - 8))
 
         win.geometry(f"{pw}x{ph}+{int(px)}+{int(py)}")
         hide_from_taskbar(win)
@@ -1715,8 +1714,8 @@ class PersianClockWidget:
             if cy + ch > mb - 8:
                 cy = max(mt + 8, mb - ch - 8)
 
-        cx = max(8, min(cx, screen_w - cw - 8))
-        cy = max(8, min(cy, screen_h - ch - 8))
+        cx = max(ml + 8, min(cx, mr - cw - 8))
+        cy = max(mt + 8, min(cy, mb - ch - 8))
         self.cal_win.geometry(f"{cw}x{ch}+{int(cx)}+{int(cy)}")
 
     def open_alarm_manager(self):
