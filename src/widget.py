@@ -513,7 +513,7 @@ class PersianClockWidget:
             self.menu.grab_release()
 
     def _get_btn_base_bg(self) -> str:
-        return "#1E2638" if not self.config.get("transparent_bg", False) else "#141821"
+        return "#161E2E" if not self.config.get("transparent_bg", False) else "#141821"
 
     def _attach_hover(
         self,
@@ -605,20 +605,38 @@ class PersianClockWidget:
         )
         self.canvas.pack(fill="both", expand=True)
 
-        self.btn_container = tk.Frame(self.canvas, bg=bg)
+        self.btn_container = tk.Frame(
+            self.canvas,
+            bg="#161E2E",
+            highlightbackground="#2A364F",
+            highlightthickness=1,
+            padx=3,
+            pady=2,
+        )
+
+        def _add_tb_sep():
+            sep = tk.Label(
+                self.btn_container,
+                text="│",
+                font=("Segoe UI", 8),
+                fg="#2D3B55",
+                bg="#161E2E",
+                padx=1,
+            )
+            sep.pack(side="left")
 
         # ۱. دکمه باز/بسته کردن تقویم (Extend)
         self.extend_btn = tk.Label(
             self.btn_container,
-            text="◂ تقویم",
+            text="📅 تقویم",
             font=(self.config["font_family"], 8, "bold"),
             fg=self.config["accent_color"],
-            bg="#1E2638",
-            padx=5,
+            bg="#161E2E",
+            padx=6,
             pady=2,
             cursor="hand2",
         )
-        self.extend_btn.pack(side="left", padx=(0, 3))
+        self.extend_btn.pack(side="left", padx=(0, 2))
         self.extend_btn.bind("<Button-1>", self._toggle_calendar)
         self._attach_hover(
             self.extend_btn,
@@ -627,6 +645,7 @@ class PersianClockWidget:
             hover_bg="#0284C7",
             hover_fg="#FFFFFF",
         )
+        _add_tb_sep()
 
         # ۲. دکمه کپی ۱۰ فرمت زمان برنامه‌نویسی برای API + GUID
         self.copy_time_btn = tk.Label(
@@ -634,12 +653,12 @@ class PersianClockWidget:
             text="📋",
             font=("Segoe UI Emoji", 8),
             fg="#A7F3D0",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.copy_time_btn.pack(side="left", padx=(0, 3))
+        self.copy_time_btn.pack(side="left", padx=(1, 1))
         self.copy_time_btn.bind("<Button-1>", self._toggle_dev_popup_window)
         self._attach_hover(
             self.copy_time_btn,
@@ -655,12 +674,12 @@ class PersianClockWidget:
             text="GUID",
             font=("Consolas", 8, "bold"),
             fg="#C4B5FD",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.guid_btn.pack(side="left", padx=(0, 3))
+        self.guid_btn.pack(side="left", padx=(1, 1))
         self.guid_btn.bind("<Button-1>", self._quick_copy_guid)
         self.guid_btn.bind("<Button-3>", self._toggle_dev_popup_window)
         self._attach_hover(
@@ -678,12 +697,12 @@ class PersianClockWidget:
             text="UTC" if is_utc_primary else "TEH",
             font=("Consolas", 8, "bold"),
             fg="#38BDF8" if is_utc_primary else "#E2E8F0",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.tz_btn.pack(side="left", padx=(0, 3))
+        self.tz_btn.pack(side="left", padx=(1, 2))
         self.tz_btn.bind("<Button-1>", self._toggle_primary_timezone)
         self._attach_hover(
             self.tz_btn,
@@ -692,6 +711,7 @@ class PersianClockWidget:
             hover_bg="#0284C7",
             hover_fg="#FFFFFF",
         )
+        _add_tb_sep()
 
         # ۴. دکمه مدیریت رویدادها و آلارم‌ها
         self.alarm_btn = tk.Label(
@@ -699,12 +719,12 @@ class PersianClockWidget:
             text="⏰",
             font=("Segoe UI Emoji", 8),
             fg="#FBBF24",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.alarm_btn.pack(side="left", padx=(0, 3))
+        self.alarm_btn.pack(side="left", padx=(1, 1))
         self.alarm_btn.bind("<Button-1>", lambda e: (self.open_alarm_manager(), "break")[1])
         self._attach_hover(
             self.alarm_btn,
@@ -720,12 +740,12 @@ class PersianClockWidget:
             text="🎂",
             font=("Segoe UI Emoji", 8),
             fg="#F472B6",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.occ_btn.pack(side="left", padx=(0, 3))
+        self.occ_btn.pack(side="left", padx=(1, 2))
         self.occ_btn.bind("<Button-1>", lambda e: (self.open_custom_occasions_manager(), "break")[1])
         self._attach_hover(
             self.occ_btn,
@@ -734,6 +754,7 @@ class PersianClockWidget:
             hover_bg="#DB2777",
             hover_fg="#FFFFFF",
         )
+        _add_tb_sep()
 
         # ۵. دکمه تنظیمات ظاهری
         self.settings_btn = tk.Label(
@@ -741,12 +762,12 @@ class PersianClockWidget:
             text="⚙",
             font=("Segoe UI", 8),
             fg=self.config["date_color"],
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.settings_btn.pack(side="left", padx=(0, 2))
+        self.settings_btn.pack(side="left", padx=(1, 1))
         self.settings_btn.bind("<Button-1>", lambda e: (self.open_settings_window(), "break")[1])
         self._attach_hover(
             self.settings_btn,
@@ -762,12 +783,12 @@ class PersianClockWidget:
             text="🗕",
             font=("Segoe UI", 8, "bold"),
             fg=self.config["date_color"],
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.min_btn.pack(side="left", padx=(0, 2))
+        self.min_btn.pack(side="left", padx=(1, 1))
         self.min_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
         self._attach_hover(
             self.min_btn,
@@ -783,12 +804,12 @@ class PersianClockWidget:
             text="✕",
             font=("Segoe UI", 8, "bold"),
             fg="#FCA5A5",
-            bg="#1E2638",
+            bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.close_btn.pack(side="left")
+        self.close_btn.pack(side="left", padx=(1, 0))
         self.close_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
         self._attach_hover(
             self.close_btn,
@@ -1544,13 +1565,22 @@ class PersianClockWidget:
                 cell_bg = "#0369A1"
                 cell_fg = "#FFFFFF"
             elif is_selected:
-                cell_bg = "#334155"
+                cell_bg = "#1E293B"
                 cell_fg = self.config["holiday_color"] if day_info["is_holiday"] else "#FFFFFF"
             else:
                 cell_bg = bg
                 cell_fg = self.config["holiday_color"] if day_info["is_holiday"] else self.config["clock_color"]
 
             cell.configure(bg=cell_bg, cursor="hand2")
+            if is_today or is_selected:
+                cell.create_rectangle(
+                    1,
+                    1,
+                    34,
+                    26,
+                    outline="#38BDF8" if is_today else "#64748B",
+                    width=1,
+                )
             draw_outlined_canvas_text(
                 cell,
                 18,
@@ -1561,7 +1591,8 @@ class PersianClockWidget:
                 outline="#000000",
             )
             if has_any_event:
-                dot_color = "#FBBF24" if user_alarms else self.config["accent_color"]
+                has_bday = "🎂" in (day_info.get("occasion") or "")
+                dot_color = "#F472B6" if has_bday else ("#FBBF24" if user_alarms else self.config["accent_color"])
                 cell.create_oval(16, 22, 20, 26, fill=dot_color, outline="#000000")
 
             cell.bind("<Button-1>", lambda e, info=day_info: self._on_day_clicked(info))
@@ -1699,7 +1730,7 @@ class PersianClockWidget:
         else:
             if self.cal_win:
                 self.cal_win.withdraw()
-            self.extend_btn.configure(text="◂ تقویم")
+            self.extend_btn.configure(text="📅 تقویم")
         return "break"
 
     def _get_calendar_size(self) -> tuple[int, int]:
@@ -2182,7 +2213,12 @@ class PersianClockWidget:
             highlightthickness=0 if transparent_bg else 1,
         )
         self.canvas.configure(bg=bg)
-        self.btn_container.configure(bg=bg)
+        dock_bg = "#161E2E" if not transparent_bg else bg
+        self.btn_container.configure(
+            bg=dock_bg,
+            highlightbackground="#2A364F" if not transparent_bg else bg,
+            highlightthickness=0 if transparent_bg else 1,
+        )
 
         btn_bg = self._get_btn_base_bg()
         font_fa = self.config.get("font_family", "Vazir")
@@ -3449,7 +3485,18 @@ class PersianClockWidget:
             target_w = max(int(self.BASE_MIN_W * scale), top_needed_w, body_needed_w)
 
         right_x = target_w - 14
-        cur_y = 6
+        cur_y = 8
+
+        if not self.config.get("transparent_bg", False):
+            self.canvas.create_rectangle(
+                0,
+                0,
+                target_w,
+                2,
+                fill=self.config.get("accent_color", "#38BDF8"),
+                outline="",
+                tags="drawn_text",
+            )
 
         draw_outlined_canvas_text(
             self.canvas,
@@ -3480,9 +3527,21 @@ class PersianClockWidget:
         cur_y += date_h + 4
 
         if utc_line_str:
+            pill_pad_x = 8
+            pill_pad_y = 2
+            self.canvas.create_rectangle(
+                right_x - utc_w - pill_pad_x * 2,
+                cur_y - pill_pad_y,
+                right_x,
+                cur_y + utc_h + pill_pad_y,
+                fill="#0F172A",
+                outline="#1E3A5F" if primary_tz != "utc" else "#065F46",
+                width=1,
+                tags="drawn_text",
+            )
             draw_outlined_canvas_text(
                 self.canvas,
-                right_x,
+                right_x - pill_pad_x,
                 cur_y,
                 text=utc_line_str,
                 font_spec=("Consolas", max(7, o_size), "bold"),
@@ -3492,9 +3551,9 @@ class PersianClockWidget:
                 justify="right",
                 tags="drawn_text",
             )
-            cur_y += utc_h + 4
+            cur_y += utc_h + 7
         else:
-            cur_y += 1
+            cur_y += 2
 
         if occ_str:
             draw_outlined_canvas_text(
