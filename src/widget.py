@@ -1685,6 +1685,7 @@ class PersianClockWidget:
                 self.selected_day_info = today
             self._position_calendar_window()
             self.cal_win.deiconify()
+            self.cal_win.lift()
             self._render_calendar_month()
             hide_from_taskbar(self.cal_win)
             apply_rounded_corners(self.cal_win, self.calendar_w, self.calendar_h, radius=16, enabled=True)
@@ -1698,6 +1699,7 @@ class PersianClockWidget:
             if self.cal_win:
                 self.cal_win.withdraw()
             self.extend_btn.configure(text="◂ تقویم")
+        return "break"
 
     def _position_calendar_window(self):
         if not self.cal_win or not self.widget_win:
