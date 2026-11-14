@@ -462,9 +462,11 @@ class _SingleTaskbarReplacer:
         horizontal = tb_w >= tb_h
 
         # متن ساعت
-        time_txt = str(info.get("time_str", ""))[:5]
-        if cfg.get("taskbar_clock_seconds", False):
-            time_txt = str(info.get("time_str", ""))
+        base_hm = str(info.get("time_str", ""))[:5]
+        if cfg.get("show_seconds", False) or cfg.get("taskbar_clock_seconds", False):
+            time_txt = f"{base_hm}:{int(info.get('second', 0)):02d}"
+        else:
+            time_txt = base_hm
         time_txt = self.app.format_digits_public(time_txt, use_fa)
 
         # متن تاریخ شمسی (کوتاه و استاندارد برای قرارگیری در تسک‌بار)
@@ -737,9 +739,11 @@ class TaskbarClockOverlay:
         tb_h = tb_b - tb_t
         horizontal = tb_w >= tb_h
 
-        time_txt = str(info.get("time_str", ""))[:5]
-        if cfg.get("taskbar_clock_seconds", False):
-            time_txt = str(info.get("time_str", ""))
+        base_hm = str(info.get("time_str", ""))[:5]
+        if cfg.get("show_seconds", False) or cfg.get("taskbar_clock_seconds", False):
+            time_txt = f"{base_hm}:{int(info.get('second', 0)):02d}"
+        else:
+            time_txt = base_hm
         date_txt = f"{info.get('weekday_name', '')} {info.get('date_numeric', '')}"
         if info.get("has_occasion") and info.get("is_holiday"):
             date_txt += " • تعطیل"

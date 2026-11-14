@@ -131,6 +131,7 @@ DEFAULT_CONFIG = {
     "snap_side": "right",           # جهت چسبیدن به لبه صفحه در حالت قفل ('right' یا 'left')
     "primary_timezone": "tehran",   # 'tehran' یا 'utc' (تایم اصلی ویجت بدون نمایش +03:30)
     "show_utc": False,              # نمایش ردیف مجزای ساعت و تاریخ UTC در ویجت برای برنامه‌نویسان
+    "show_seconds": False,          # نمایش ثانیه در ساعت (همه‌جا: ویجت، UTC و تسک‌بار)
 }
 
 
@@ -845,6 +846,19 @@ class PersianClockWidget:
         if var is not None:
             try:
                 var.set(bool(self.config["show_utc"]))
+            except Exception:
+                pass
+        self._refresh_display()
+
+    def _toggle_show_seconds(self):
+        new_val = not bool(self.config.get("show_seconds", False))
+        self.config["show_seconds"] = new_val
+        self.config["taskbar_clock_seconds"] = new_val
+        self._save_config()
+        var = getattr(self, "_settings_show_seconds_var", None)
+        if var is not None:
+            try:
+                var.set(new_val)
             except Exception:
                 pass
         self._refresh_display()
@@ -2317,6 +2331,12 @@ class PersianClockWidget:
             else "🌐 نمایش ردیف زمان UTC در ویجت"
         )
         self.menu.add_command(label=utc_row_label, command=self._toggle_show_utc)
+        sec_label = (
+            "✓ ⏱ نمایش ثانیه در ساعت (همه‌جا - فعال)"
+            if self.config.get("show_seconds")
+            else "⏱ نمایش ثانیه در ساعت (همه‌جا)"
+        )
+        self.menu.add_command(label=sec_label, command=self._toggle_show_seconds)
         self.menu.add_separator()
 
         self.menu.add_command(
@@ -3115,10 +3135,16 @@ class PersianClockWidget:
         self._settings_show_utc_var = tk.BooleanVar(
             value=bool(self.config.get("show_utc", False))
         )
+        self._settings_show_seconds_var = tk.BooleanVar(
+            value=bool(self.config.get("show_seconds", False))
+        )
 
         def on_tz_settings_change():
             self.config["primary_timezone"] = self._settings_primary_tz_var.get()
             self.config["show_utc"] = bool(self._settings_show_utc_var.get())
+            sec_on = bool(self._settings_show_seconds_var.get())
+            self.config["show_seconds"] = sec_on
+            self.config["taskbar_clock_seconds"] = sec_on
             self._save_config()
             self._update_tz_btn_appearance()
             self._refresh_display()
@@ -3150,6 +3176,19 @@ class PersianClockWidget:
             command=on_tz_settings_change,
             font=(font_fa, 8),
             fg="#A7F3D0",
+            bg="#1E293B",
+            selectcolor="#0F172A",
+            activebackground="#1E293B",
+            anchor="w",
+        ).pack(fill="x", pady=(2, 0))
+
+        tk.Checkbutton(
+            sec6,
+            text="⏱ نمایش ثانیه در ساعت (همه‌جا: ویجت، UTC و ساعت تسک‌بار)",
+            variable=self._settings_show_seconds_var,
+            command=on_tz_settings_change,
+            font=(font_fa, 8, "bold"),
+            fg="#FBBF24",
             bg="#1E293B",
             selectcolor="#0F172A",
             activebackground="#1E293B",
@@ -3307,10 +3346,11 @@ class PersianClockWidget:
 
         primary_tz = self.config.get("primary_timezone", "tehran")
         show_utc = bool(self.config.get("show_utc", False))
+        show_seconds = bool(self.config.get("show_seconds", False))
         now_utc = datetime.now(timezone.utc)
 
         if primary_tz == "utc":
-            time_str = format_digits(now_utc.strftime("%H:%M"), use_fa)
+            time_str = format_digits(now_utc.strftime("%H:%M:%S" if show_seconds else "%H:%M"), use_fa)
             date_str = format_digits(f"UTC  •  {now_utc.strftime('%Y-%m-%d')}", use_fa)
             date_fill = self.config.get("accent_color", "#38BDF8")
             utc_line_str = (
@@ -3319,7 +3359,8 @@ class PersianClockWidget:
                 else ""
             )
         else:
-            time_str = format_digits(info["time_str"], use_fa)
+            raw_teh = f"{info['time_str']}:{int(info['second']):02d}" if show_seconds else info["time_str"]
+            time_str = format_digits(raw_teh, use_fa)
             date_str = format_digits(info["date_text"], use_fa)
             date_fill = (
                 self.config.get("holiday_color", "#F87171")
