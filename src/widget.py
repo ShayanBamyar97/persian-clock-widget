@@ -714,6 +714,27 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
+        # ۴.۵. دکمه سریع مدیریت مناسبت‌های شخصی و تولدها
+        self.occ_btn = tk.Label(
+            self.btn_container,
+            text="🎂",
+            font=("Segoe UI Emoji", 8),
+            fg="#F472B6",
+            bg="#1E2638",
+            padx=5,
+            pady=2,
+            cursor="hand2",
+        )
+        self.occ_btn.pack(side="left", padx=(0, 3))
+        self.occ_btn.bind("<Button-1>", lambda e: (self.open_custom_occasions_manager(), "break")[1])
+        self._attach_hover(
+            self.occ_btn,
+            "ثبت تولد دوستان و مناسبت‌های شخصی + آلارم روز قبل",
+            base_fg_fn=lambda: "#F472B6",
+            hover_bg="#DB2777",
+            hover_fg="#FFFFFF",
+        )
+
         # ۵. دکمه تنظیمات ظاهری
         self.settings_btn = tk.Label(
             self.btn_container,
@@ -1777,9 +1798,12 @@ class PersianClockWidget:
         win.configure(bg="#0F172A")
         win.attributes("-topmost", True)
         w, h = 470, 520
-        sx = (win.winfo_screenwidth() - w) // 2
-        sy = (win.winfo_screenheight() - h) // 2
-        win.geometry(f"{w}x{h}+{sx}+{sy}")
+        wx = self.widget_win.winfo_x() if self.widget_win else 0
+        wy = self.widget_win.winfo_y() if self.widget_win else 0
+        ml, mt, mr, mb = get_monitor_work_area_at(wx + 50, wy + 50, self.root)
+        sx = ml + ((mr - ml) - w) // 2
+        sy = mt + ((mb - mt) - h) // 2
+        win.geometry(f"{w}x{h}+{int(sx)}+{int(sy)}")
         win.resizable(False, False)
 
         container = tk.Frame(win, bg="#0F172A", padx=14, pady=12)
@@ -2163,6 +2187,8 @@ class PersianClockWidget:
         self.copy_time_btn.configure(bg=btn_bg, fg="#A7F3D0")
         self.guid_btn.configure(bg=btn_bg, fg="#C4B5FD")
         self.alarm_btn.configure(bg=btn_bg, fg="#FBBF24")
+        if hasattr(self, "occ_btn"):
+            self.occ_btn.configure(bg=btn_bg, fg="#F472B6")
         self.settings_btn.configure(
             bg=btn_bg,
             fg=self.config.get("date_color", "#CBD5E1"),
