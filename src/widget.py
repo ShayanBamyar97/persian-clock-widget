@@ -1398,6 +1398,9 @@ class PersianClockWidget:
         self.cal_sep = tk.Frame(self.cal_frame, bg=self.config["border_color"], height=1)
         self.cal_sep.pack(fill="x", pady=(2, 6))
 
+        self.cal_bottom_bar = tk.Frame(self.cal_frame, bg=bg)
+        self.cal_bottom_bar.pack(side="bottom", fill="x", pady=(4, 0))
+
         self.detail_canvas = tk.Canvas(
             self.cal_frame,
             height=74,
@@ -1405,9 +1408,6 @@ class PersianClockWidget:
             highlightthickness=0,
         )
         self.detail_canvas.pack(fill="both", expand=True)
-
-        self.cal_bottom_bar = tk.Frame(self.cal_frame, bg=bg)
-        self.cal_bottom_bar.pack(fill="x", pady=(4, 0))
 
         self.add_event_btn = tk.Label(
             self.cal_bottom_bar,
@@ -1688,7 +1688,8 @@ class PersianClockWidget:
             self.cal_win.lift()
             self._render_calendar_month()
             hide_from_taskbar(self.cal_win)
-            apply_rounded_corners(self.cal_win, self.calendar_w, self.calendar_h, radius=16, enabled=True)
+            cw, ch = self._get_calendar_size()
+            apply_rounded_corners(self.cal_win, cw, ch, radius=16, enabled=True)
             cal_alpha = max(0.85, float(self.config.get("opacity", 0.90)))
             if is_locked and cal_alpha >= 1.0:
                 cal_alpha = 0.99
@@ -1701,10 +1702,18 @@ class PersianClockWidget:
             self.extend_btn.configure(text="◂ تقویم")
         return "break"
 
+    def _get_calendar_size(self) -> tuple[int, int]:
+        if self.cal_win and self.cal_win.winfo_exists():
+            self.cal_win.update_idletasks()
+            cw = max(self.calendar_w, self.cal_win.winfo_reqwidth())
+            ch = max(self.calendar_h, self.cal_win.winfo_reqheight())
+            return cw, ch
+        return self.calendar_w, self.calendar_h
+
     def _position_calendar_window(self):
         if not self.cal_win or not self.widget_win:
             return
-        cw, ch = self.calendar_w, self.calendar_h
+        cw, ch = self._get_calendar_size()
 
         # در صورتی که ویجت دسکتاپ مخفی است، تقویم بالای ساعت گوشه مانیتور محل کلیک باز شود
         hide_desktop = (
