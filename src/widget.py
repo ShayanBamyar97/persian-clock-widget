@@ -620,7 +620,6 @@ class PersianClockWidget:
         )
         self.extend_btn.pack(side="left", padx=(0, 3))
         self.extend_btn.bind("<Button-1>", self._toggle_calendar)
-        self.extend_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.extend_btn,
             lambda: "بستن تقویم ماهانه" if self.config.get("calendar_expanded") else "نمایش تقویم ماهانه و مناسبت‌ها",
@@ -642,7 +641,6 @@ class PersianClockWidget:
         )
         self.copy_time_btn.pack(side="left", padx=(0, 3))
         self.copy_time_btn.bind("<Button-1>", self._toggle_dev_popup_window)
-        self.copy_time_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.copy_time_btn,
             "کپی زمان (۱۰ فرمت API: تاریخ+ساعت / تاریخ جدا / ساعت جدا) + GUID",
@@ -664,7 +662,6 @@ class PersianClockWidget:
         )
         self.guid_btn.pack(side="left", padx=(0, 3))
         self.guid_btn.bind("<Button-1>", self._quick_copy_guid)
-        self.guid_btn.bind("<Double-Button-1>", lambda e: "break")
         self.guid_btn.bind("<Button-3>", self._toggle_dev_popup_window)
         self._attach_hover(
             self.guid_btn,
@@ -688,7 +685,6 @@ class PersianClockWidget:
         )
         self.tz_btn.pack(side="left", padx=(0, 3))
         self.tz_btn.bind("<Button-1>", self._toggle_primary_timezone)
-        self.tz_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.tz_btn,
             "تبدیل سریع ساعت اصلی بین تهران و UTC (بدون نمایش +03:30)",
@@ -710,7 +706,6 @@ class PersianClockWidget:
         )
         self.alarm_btn.pack(side="left", padx=(0, 3))
         self.alarm_btn.bind("<Button-1>", lambda e: (self.open_alarm_manager(), "break")[1])
-        self.alarm_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.alarm_btn,
             "مدیریت رویدادها و آلارم‌ها (تقویم چندانتخابی)",
@@ -732,7 +727,6 @@ class PersianClockWidget:
         )
         self.settings_btn.pack(side="left", padx=(0, 2))
         self.settings_btn.bind("<Button-1>", lambda e: (self.open_settings_window(), "break")[1])
-        self.settings_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.settings_btn,
             "تنظیمات ظاهری، رنگ، سایز و فونت",
@@ -754,7 +748,6 @@ class PersianClockWidget:
         )
         self.min_btn.pack(side="left", padx=(0, 2))
         self.min_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
-        self.min_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.min_btn,
             "مینیمایز به Hidden Icons (بدون آیکون در تسک‌بار)",
@@ -776,7 +769,6 @@ class PersianClockWidget:
         )
         self.close_btn.pack(side="left")
         self.close_btn.bind("<Button-1>", lambda e: (self.minimize_widget(), "break")[1])
-        self.close_btn.bind("<Double-Button-1>", lambda e: "break")
         self._attach_hover(
             self.close_btn,
             "بستن ویجت روی دسکتاپ (ارسال به Hidden Icons)",
