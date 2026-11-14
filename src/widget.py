@@ -35,6 +35,7 @@ try:
         apply_z_order_and_clickthrough,
         enable_dpi_awareness,
         get_data_dir,
+        get_monitor_work_area_at,
         get_resource_path,
         hide_from_taskbar,
         is_startup_enabled,
@@ -70,6 +71,7 @@ except ImportError:
         apply_z_order_and_clickthrough,
         enable_dpi_awareness,
         get_data_dir,
+        get_monitor_work_area_at,
         get_resource_path,
         hide_from_taskbar,
         is_startup_enabled,
@@ -240,19 +242,18 @@ class HoverTooltip:
             win.update_idletasks()
             tw = win.winfo_reqwidth()
             th = win.winfo_reqheight()
-            screen_w = win.winfo_screenwidth()
-            screen_h = win.winfo_screenheight()
+            ml, mt, mr, mb = get_monitor_work_area_at(wx, wy, win)
 
-            # نمایش در بالای آیکون یا پایین آیکون به‌گونه‌ای که همیشه کامل دیده شود
+            # نمایش در بالای آیکون یا پایین آیکون به‌گونه‌ای که در مانیتور فعلی کامل دیده شود
             pos_x = wx - (tw // 3)
-            if pos_x + tw > screen_w - 8:
-                pos_x = screen_w - tw - 8
-            pos_x = max(8, pos_x)
+            if pos_x + tw > mr - 8:
+                pos_x = mr - tw - 8
+            pos_x = max(ml + 8, pos_x)
 
-            if wy - th - 6 >= 8:
+            if wy - th - 6 >= mt + 8:
                 pos_y = wy - th - 6
             else:
-                pos_y = min(screen_h - th - 8, wy + wh + 6)
+                pos_y = min(mb - th - 8, wy + wh + 6)
 
             win.geometry(f"+{int(pos_x)}+{int(pos_y)}")
             hide_from_taskbar(win)
@@ -1675,39 +1676,44 @@ class PersianClockWidget:
     def _position_calendar_window(self):
         if not self.cal_win or not self.widget_win:
             return
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
         cw, ch = self.calendar_w, self.calendar_h
 
-        # در صورتی که ویجت دسکتاپ مخفی است (نمایش فقط در تسک‌بار)، تقویم دقیقاً بالای ساعت گوشه تسک‌بار باز شود
+        # در صورتی که ویجت دسکتاپ مخفی است، تقویم بالای ساعت گوشه مانیتور محل کلیک باز شود
         hide_desktop = (
             bool(self.config.get("replace_windows_clock", False))
             and bool(self.config.get("replace_clock_hide_widget", False))
         )
         if hide_desktop or not self.widget_win.winfo_viewable():
-            cx = screen_w - cw - 12
-            cy = screen_h - ch - 54
+            try:
+                px = self.root.winfo_pointerx()
+                py = self.root.winfo_pointery()
+            except Exception:
+                px, py = 0, 0
+            ml, mt, mr, mb = get_monitor_work_area_at(px, py, self.root)
+            cx = mr - cw - 12
+            cy = mb - ch - 12
             self.cal_win.geometry(f"{cw}x{ch}+{int(cx)}+{int(cy)}")
             return
 
         wx = self.widget_win.winfo_x()
         wy = self.widget_win.winfo_y()
         ww, wh = self.compact_w, self.compact_h
+        ml, mt, mr, mb = get_monitor_work_area_at(wx + ww // 2, wy + wh // 2, self.root)
 
         mode = self.config.get("calendar_position", "beside")
         if mode == "below":
             cx = wx + ww - cw
             cy = wy + wh + self.GAP
-            if cy + ch > screen_h - 40:
+            if cy + ch > mb - 8:
                 cy = wy - ch - self.GAP
         else:
-            if wx - cw - self.GAP >= 10:
+            if wx - cw - self.GAP >= ml + 8:
                 cx = wx - cw - self.GAP
             else:
                 cx = wx + ww + self.GAP
             cy = wy
-            if cy + ch > screen_h - 48:
-                cy = max(10, screen_h - ch - 48)
+            if cy + ch > mb - 8:
+                cy = max(mt + 8, mb - ch - 8)
 
         cx = max(8, min(cx, screen_w - cw - 8))
         cy = max(8, min(cy, screen_h - ch - 8))
@@ -2092,24 +2098,26 @@ class PersianClockWidget:
                 self.alarm_win._render_picker_calendar()
 
     def _init_position(self):
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
         ww, wh = self.compact_w, self.compact_h
 
         x = self.config.get("x")
         y = self.config.get("y")
-        if self.config.get("locked"):
-            snap_side = self.config.get("snap_side", "right")
-            x = (screen_w - ww) if snap_side == "right" else 0
-        elif x is None or y is None:
-            x = screen_w - ww - 32
-            y = 32
+        if x is None or y is None:
+            ml, mt, mr, mb = get_monitor_work_area_at(0, 0, self.root)
+            x = mr - ww - 32
+            y = mt + 32
             self.config["x"] = x
             self.config["y"] = y
             self._save_config()
+        else:
+            ml, mt, mr, mb = get_monitor_work_area_at(int(x) + ww // 2, int(y) + wh // 2, self.root)
 
-        x = max(0, min(int(x), screen_w - ww))
-        y = max(0, min(int(y), screen_h - wh))
+        if self.config.get("locked"):
+            snap_side = self.config.get("snap_side", "right")
+            x = (mr - ww) if snap_side == "right" else ml
+
+        x = max(ml, min(int(x), mr - ww))
+        y = max(mt, min(int(y), mb - wh))
         self.widget_win.geometry(f"{ww}x{wh}+{x}+{y}")
         self._position_lock_window()
 
@@ -2167,17 +2175,16 @@ class PersianClockWidget:
         self._refresh_display()
 
         ww, wh = self.compact_w, self.compact_h
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
         cur_x = self.widget_win.winfo_x()
         cur_y = self.widget_win.winfo_y()
+        ml, mt, mr, mb = get_monitor_work_area_at(cur_x + ww // 2, cur_y + wh // 2, self.root)
         if is_locked:
             snap_side = self.config.get("snap_side", "right")
-            pos_x = (screen_w - ww) if snap_side == "right" else 0
-            pos_y = max(0, min(cur_y, screen_h - wh - 40))
+            pos_x = (mr - ww) if snap_side == "right" else ml
+            pos_y = max(mt, min(cur_y, mb - wh))
         else:
-            pos_x = max(0, min(cur_x, screen_w - ww))
-            pos_y = max(0, min(cur_y, screen_h - wh - 40))
+            pos_x = max(ml, min(cur_x, mr - ww))
+            pos_y = max(mt, min(cur_y, mb - wh))
         self.widget_win.geometry(f"{ww}x{wh}+{int(pos_x)}+{int(pos_y)}")
         self._position_lock_window()
 
@@ -2440,22 +2447,24 @@ class PersianClockWidget:
         self._close_dev_popup_window()
         going_to_lock = not self.config.get("locked", False)
         self.config["locked"] = going_to_lock
-        screen_w = self.root.winfo_screenwidth()
+        wx = self.widget_win.winfo_x() if self.widget_win else int(self.config.get("x") or 0)
+        wy = self.widget_win.winfo_y() if self.widget_win else int(self.config.get("y") or 0)
+        ml, _mt, mr, _mb = get_monitor_work_area_at(wx + self.compact_w // 2, wy + self.compact_h // 2, self.root)
         if going_to_lock:
-            # ذخیره مکان آزاد قبل از قفل و تعیین جهت چسبیدن به لبه صفحه (چپ یا راست)
+            # ذخیره مکان آزاد قبل از قفل و تعیین جهت چسبیدن به لبه مانیتور فعلی (چپ یا راست)
             if self.widget_win:
-                self._unlocked_x = self.widget_win.winfo_x()
-                self._unlocked_y = self.widget_win.winfo_y()
-                center_x = self._unlocked_x + (self.compact_w / 2)
-                self.config["snap_side"] = "right" if center_x >= (screen_w / 2) else "left"
+                self._unlocked_x = wx
+                self._unlocked_y = wy
+                center_x = wx + (self.compact_w / 2)
+                self.config["snap_side"] = "right" if center_x >= ((ml + mr) / 2) else "left"
             if self.config.get("calendar_expanded", False):
                 self.config["calendar_expanded"] = False
         else:
-            # هنگام باز کردن قفل، مکان به شکلی بازگردد که ویجت باز شده از صفحه بیرون نزند
+            # هنگام باز کردن قفل، مکان در همان مانیتور فعلی بماند و از صفحه بیرون نزند
             if self.config.get("snap_side") == "right":
-                self.config["x"] = max(10, screen_w - self.BASE_MIN_W - 20)
+                self.config["x"] = max(ml + 10, mr - self.BASE_MIN_W - 20)
             elif getattr(self, "_unlocked_x", None) is not None:
-                self.config["x"] = max(10, min(int(self._unlocked_x), screen_w - self.BASE_MIN_W - 10))
+                self.config["x"] = max(ml + 10, min(int(self._unlocked_x), mr - self.BASE_MIN_W - 10))
         self._save_config()
         self._apply_all_styles()
         if hasattr(self, "_settings_lock_var") and self._settings_lock_var is not None:
@@ -2567,20 +2576,22 @@ class PersianClockWidget:
         def on_lock_change():
             new_locked = self._settings_lock_var.get()
             self.config["locked"] = new_locked
-            screen_w = self.root.winfo_screenwidth()
+            wx = self.widget_win.winfo_x() if self.widget_win else int(self.config.get("x") or 0)
+            wy = self.widget_win.winfo_y() if self.widget_win else int(self.config.get("y") or 0)
+            ml, _mt, mr, _mb = get_monitor_work_area_at(wx + self.compact_w // 2, wy + self.compact_h // 2, self.root)
             if new_locked:
                 if self.widget_win:
-                    self._unlocked_x = self.widget_win.winfo_x()
-                    self._unlocked_y = self.widget_win.winfo_y()
-                    center_x = self._unlocked_x + (self.compact_w / 2)
-                    self.config["snap_side"] = "right" if center_x >= (screen_w / 2) else "left"
+                    self._unlocked_x = wx
+                    self._unlocked_y = wy
+                    center_x = wx + (self.compact_w / 2)
+                    self.config["snap_side"] = "right" if center_x >= ((ml + mr) / 2) else "left"
                 if self.config.get("calendar_expanded", False):
                     self.config["calendar_expanded"] = False
             else:
                 if self.config.get("snap_side") == "right":
-                    self.config["x"] = max(10, screen_w - self.BASE_MIN_W - 20)
+                    self.config["x"] = max(ml + 10, mr - self.BASE_MIN_W - 20)
                 elif getattr(self, "_unlocked_x", None) is not None:
-                    self.config["x"] = max(10, min(int(self._unlocked_x), screen_w - self.BASE_MIN_W - 10))
+                    self.config["x"] = max(ml + 10, min(int(self._unlocked_x), mr - self.BASE_MIN_W - 10))
             self._save_config()
             self._apply_all_styles()
 
@@ -3468,18 +3479,17 @@ class PersianClockWidget:
         self._computed_w = target_w
         self._computed_h = target_h
 
-        if self.widget_win and not getattr(self, "_is_minimized", False):
-            screen_w = self.root.winfo_screenwidth()
-            screen_h = self.root.winfo_screenheight()
+        if self.widget_win and not getattr(self, "_is_minimized", False) and not self._is_dragging:
             cur_cx = self.widget_win.winfo_x()
             cur_cy = self.widget_win.winfo_y()
+            ml, mt, mr, mb = get_monitor_work_area_at(cur_cx + target_w // 2, cur_cy + target_h // 2, self.root)
             if is_locked:
                 snap_side = self.config.get("snap_side", "right")
-                target_x = (screen_w - target_w) if snap_side == "right" else 0
-                target_y = max(0, min(cur_cy, screen_h - target_h - 40))
+                target_x = (mr - target_w) if snap_side == "right" else ml
+                target_y = max(mt, min(cur_cy, mb - target_h))
             else:
-                target_x = max(0, min(cur_cx, screen_w - target_w))
-                target_y = max(0, min(cur_cy, screen_h - target_h - 40))
+                target_x = max(ml, min(cur_cx, mr - target_w))
+                target_y = max(mt, min(cur_cy, mb - target_h))
 
             if size_changed or (cur_cx != target_x) or (cur_cy != target_y):
                 self.widget_win.geometry(f"{target_w}x{target_h}+{int(target_x)}+{int(target_y)}")

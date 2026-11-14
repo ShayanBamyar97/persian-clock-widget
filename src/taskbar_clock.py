@@ -93,6 +93,44 @@ def get_taskbar_geometry():
         return 0, sh - 48, sw, sh, None
 
 
+def get_all_taskbar_geometries() -> list[tuple[int, int, int, int, int | None]]:
+    """
+    دریافت مختصات تمام تسک‌بارهای ویندوز در سیستم‌های تک‌مانیتوره و چندمانیتوره
+    (Shell_TrayWnd + تمام Shell_SecondaryTrayWnd ها)
+    خروجی: لیستی از (left, top, right, bottom, tray_left)
+    """
+    if not IS_WIN:
+        return [get_taskbar_geometry()]
+
+    geos: list[tuple[int, int, int, int, int | None]] = []
+    try:
+        user32 = ctypes.windll.user32
+
+        # ۱. تسک‌بار اصلی (Shell_TrayWnd)
+        primary_geo = get_taskbar_geometry()
+        if primary_geo:
+            geos.append(primary_geo)
+
+        # ۲. تمام تسک‌بارهای مانیتورهای دوم و بعدی (Shell_SecondaryTrayWnd)
+        prev = 0
+        for _ in range(16):
+            sec_hwnd = user32.FindWindowExW(0, prev, "Shell_SecondaryTrayWnd", None)
+            if not sec_hwnd:
+                break
+            prev = sec_hwnd
+            if user32.IsWindowVisible(sec_hwnd):
+                r = wintypes.RECT()
+                if user32.GetWindowRect(sec_hwnd, ctypes.byref(r)):
+                    if (r.right - r.left) > 20 and (r.bottom - r.top) > 10:
+                        geos.append((int(r.left), int(r.top), int(r.right), int(r.bottom), None))
+    except Exception:
+        pass
+
+    if not geos:
+        geos.append(get_taskbar_geometry())
+    return geos
+
+
 def is_taskbar_light_theme() -> bool:
     """تشخیص تم روشن یا تاریک تسک‌بار ویندوز از رجیستری"""
     if not IS_WIN or winreg is None:
@@ -199,18 +237,16 @@ def set_windows11_tray_clock_hidden(hide: bool) -> bool:
         return False
 
 
-class WindowsClockReplacer:
+class _SingleTaskbarReplacer:
     """
-    جایگزینی کامل ساعت و تاریخ ویندوز در تسک‌بار:
-    - اتصال مستقیم به داخل نوار تسک‌بار ویندوز (Shell_TrayWnd) با SetParent تا واقعاً جزئی از تسک‌بار شود
-    - مخفی کردن ساعت کلاسیک ویندوز ۱۰ یا پوشاندن یکپارچه ساعت ویندوز ۱۱ با تشخیص خودکار رنگ تسک‌بار
-    - نمایش ساعت تهران و تاریخ شمسی با فونت وزیر
-    - کلیک چپ: باز/بسته کردن تقویم ماهانه | کلیک راست: منوی تنظیمات | کشیدن (Drag): تنظیم مکان
+    جایگزینی کامل ساعت و تاریخ ویندوز روی یک تسک‌بار مشخص (مانیتور اصلی یا ثانویه)
     """
 
-    def __init__(self, app):
+    def __init__(self, app, taskbar_index: int = 0):
         self.app = app
         self.root = app.root
+        self.taskbar_index = taskbar_index
+        self._current_geo: tuple[int, int, int, int, int | None] | None = None
         self._press_x = 0
         self._press_win_x = 0
         self._dragged = False
@@ -349,9 +385,10 @@ class WindowsClockReplacer:
                 return False
             r = wintypes.RECT()
             user32.GetWindowRect(fg, ctypes.byref(r))
-            sw = user32.GetSystemMetrics(0)
-            sh = user32.GetSystemMetrics(1)
-            return r.left <= 0 and r.top <= 0 and r.right >= sw and r.bottom >= sh
+            geo = self._current_geo or get_taskbar_geometry()
+            tb_l, tb_t, tb_r, tb_b, _ = geo
+            # بررسی تمام‌صفحه بودن پنجره فعال روی همین مانیتور
+            return r.left <= tb_l and r.right >= tb_r and r.top <= tb_t and r.bottom >= tb_b
         except Exception:
             return False
 
@@ -390,7 +427,7 @@ class WindowsClockReplacer:
         self.win.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
         self.keep_on_top()
 
-    def refresh(self, info: dict):
+    def refresh(self, info: dict, geo: tuple[int, int, int, int, int | None] | None = None):
         if not self.win or not self.win.winfo_exists():
             return
         self._last_info = info
@@ -399,13 +436,11 @@ class WindowsClockReplacer:
         font_fa = cfg.get("font_family", "Vazir")
         font_clock = cfg.get("clock_font_family", "Vazir")
 
-        geo = get_taskbar_geometry()
-        if geo:
-            tb_l, tb_t, tb_r, tb_b, _ = geo
-        else:
-            sw = self.root.winfo_screenwidth()
-            sh = self.root.winfo_screenheight()
-            tb_l, tb_t, tb_r, tb_b = 0, sh - 48, sw, sh
+        if geo is None:
+            geos = get_all_taskbar_geometries()
+            geo = geos[self.taskbar_index] if self.taskbar_index < len(geos) else geos[0]
+        self._current_geo = geo
+        tb_l, tb_t, tb_r, tb_b, _ = geo
 
         if not self._embedded_parent_hwnd:
             self._attach_to_taskbar()
@@ -546,7 +581,7 @@ class WindowsClockReplacer:
         if abs(dx) > 4:
             self._dragged = True
         if self._dragged:
-            geo = get_taskbar_geometry()
+            geo = self._current_geo or get_taskbar_geometry()
             new_x = self._press_win_x + dx
             tb_l, tb_t = 0, self.win.winfo_rooty()
             if geo:
@@ -557,7 +592,7 @@ class WindowsClockReplacer:
 
     def _on_release(self, event):
         if self._dragged:
-            geo = get_taskbar_geometry()
+            geo = self._current_geo or get_taskbar_geometry()
             tb_r = geo[2] if geo else self.root.winfo_screenwidth()
             cur_x = self.win.winfo_rootx()
             offset = tb_r - (cur_x + self._last_w)
@@ -597,6 +632,50 @@ class WindowsClockReplacer:
         except Exception:
             pass
         self.win = None
+
+
+class WindowsClockReplacer:
+    """
+    مدیریت جایگزینی ساعت و تاریخ ویندوز روی همه مانیتورها (تک‌مانیتوره و چندمانیتوره)
+    """
+
+    def __init__(self, app):
+        self.app = app
+        self._replacers: list[_SingleTaskbarReplacer] = []
+        self._sync_monitors()
+
+    @property
+    def _last_color_probe_ts(self) -> float:
+        return self._replacers[0]._last_color_probe_ts if self._replacers else 0.0
+
+    @_last_color_probe_ts.setter
+    def _last_color_probe_ts(self, val: float):
+        for r in self._replacers:
+            r._last_color_probe_ts = val
+
+    def _sync_monitors(self) -> list[tuple[int, int, int, int, int | None]]:
+        geos = get_all_taskbar_geometries()
+        while len(self._replacers) < len(geos):
+            idx = len(self._replacers)
+            self._replacers.append(_SingleTaskbarReplacer(self.app, taskbar_index=idx))
+        while len(self._replacers) > len(geos):
+            extra = self._replacers.pop()
+            extra.destroy()
+        return geos
+
+    def refresh(self, info: dict):
+        geos = self._sync_monitors()
+        for replacer, geo in zip(self._replacers, geos):
+            replacer.refresh(info, geo=geo)
+
+    def keep_on_top(self):
+        for replacer in self._replacers:
+            replacer.keep_on_top()
+
+    def destroy(self):
+        for replacer in self._replacers:
+            replacer.destroy()
+        self._replacers.clear()
 
 
 class TaskbarClockOverlay:

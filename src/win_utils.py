@@ -539,3 +539,80 @@ class SystemTrayIcon:
             pass
         win32gui.PostQuitMessage(0)
         return True
+
+
+def get_all_monitors(root_widget=None) -> list[dict]:
+    """
+    دریافت مختصات تمام مانیتورهای متصل (rect و work area) برای پشتیبانی کامل از سیستم‌های چندمانیتوره
+    """
+    monitors = []
+    if IS_WIN and HAS_WIN32:
+        try:
+            for hmon, _hdc, _rect in win32api.EnumDisplayMonitors():
+                info = win32api.GetMonitorInfo(hmon)
+                monitors.append({
+                    "rect": tuple(int(v) for v in info["Monitor"]),
+                    "work": tuple(int(v) for v in info["Work"]),
+                })
+        except Exception:
+            monitors = []
+    if not monitors:
+        try:
+            sw = int(root_widget.winfo_screenwidth()) if root_widget else 1920
+            sh = int(root_widget.winfo_screenheight()) if root_widget else 1080
+        except Exception:
+            sw, sh = 1920, 1080
+        monitors.append({
+            "rect": (0, 0, sw, sh),
+            "work": (0, 0, sw, max(200, sh - 40)),
+        })
+    return monitors
+
+
+def get_monitor_work_area_at(x: int, y: int, root_widget=None) -> tuple[int, int, int, int]:
+    """
+    یافتن محدوده کاری (work area) مانیتوری که نقطه (x, y) داخل آن (یا نزدیک‌ترین به آن) قرار دارد
+    خروجی: (left, top, right, bottom)
+    """
+    monitors = get_all_monitors(root_widget)
+    for m in monitors:
+        ml, mt, mr, mb = m["rect"]
+        if ml <= x < mr and mt <= y < mb:
+            return m["work"]
+
+    # اگر نقطه کمی بیرون از لبه‌ها بود، نزدیک‌ترین مانیتور را انتخاب کن
+    best = monitors[0]
+    best_dist = float("inf")
+    for m in monitors:
+        ml, mt, mr, mb = m["rect"]
+        cx = (ml + mr) / 2.0
+        cy = (mt + mb) / 2.0
+        d = (x - cx) ** 2 + (y - cy) ** 2
+        if d < best_dist:
+            best_dist = d
+            best = m
+    return best["work"]
+
+
+def get_virtual_screen_bounds(root_widget=None) -> tuple[int, int, int, int]:
+    """
+    دریافت محدوده کل دسکتاپ مجازی شامل همه مانیتورها (ممکن است مختصات منفی داشته باشد)
+    خروجی: (v_left, v_top, v_right, v_bottom)
+    """
+    if IS_WIN:
+        try:
+            user32 = ctypes.windll.user32
+            vl = int(user32.GetSystemMetrics(76))  # SM_XVIRTUALSCREEN
+            vt = int(user32.GetSystemMetrics(77))  # SM_YVIRTUALSCREEN
+            vw = int(user32.GetSystemMetrics(78))  # SM_CXVIRTUALSCREEN
+            vh = int(user32.GetSystemMetrics(79))  # SM_CYVIRTUALSCREEN
+            if vw > 0 and vh > 0:
+                return vl, vt, vl + vw, vt + vh
+        except Exception:
+            pass
+    monitors = get_all_monitors(root_widget)
+    vl = min(m["rect"][0] for m in monitors)
+    vt = min(m["rect"][1] for m in monitors)
+    vr = max(m["rect"][2] for m in monitors)
+    vb = max(m["rect"][3] for m in monitors)
+    return vl, vt, vr, vb
