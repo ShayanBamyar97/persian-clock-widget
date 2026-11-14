@@ -1,0 +1,41 @@
+{
+  "name": "persian-clock-widget",
+  "version": "1.0.0",
+  "description": "Tehran Clock, Jalali Calendar, Personal Birthdays & Alarms Desktop Widget for Windows and Linux",
+  "bin": {
+    "persian-clock-widget": "bin/persian-clock.js",
+    "persian-clock": "bin/persian-clock.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "assets/",
+    "main.py",
+    "requirements.txt",
+    "README.md",
+    "README-LINUX.md",
+    "LICENSE",
+    "release/windows/PersianClockWidget.exe"
+  ],
+  "keywords": [
+    "persian",
+    "clock",
+    "jalali",
+    "shamsi",
+    "calendar",
+    "widget",
+    "tehran",
+    "alarm",
+    "windows",
+    "linux"
+  ],
+  "author": "Shayan Bamyar",
+  "license": "MIT",
+  "os": [
+    "win32",
+    "linux"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

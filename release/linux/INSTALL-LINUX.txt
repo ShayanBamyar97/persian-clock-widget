@@ -1,0 +1,50 @@
+====================================================================
+  Persian Clock & Calendar - راهنمای سریع نصب در لینوکس (Linux)
+  طراحی و توسعه: شایان بامیار (® Shayan Bamyar)
+====================================================================
+
+--------------------------------------------------------------------
+روش ۱: نصب با فایل .deb (اوبونتو، دبیان، مینت، Pop!_OS، کالی)
+--------------------------------------------------------------------
+sudo apt update
+sudo apt install ./persian-clock-widget_1.0.0_all.deb
+
+اجرا پس از نصب:
+persian-clock-widget
+(یا از منوی برنامه‌های سیستم گزینه Persian Clock & Calendar را باز کنید)
+
+حذف برنامه (در صورت نیاز):
+sudo apt remove persian-clock-widget
+
+
+--------------------------------------------------------------------
+روش ۲: نصب تک‌فایلی روی تمام توزیع‌ها (Ubuntu, Arch, Fedora, ...)
+--------------------------------------------------------------------
+chmod +x PersianClockWidget-Linux-Installer.sh
+bash PersianClockWidget-Linux-Installer.sh
+
+(برنامه، فونت‌های وزیر، میانبر منو و اجرای خودکار با شروع لینوکس را نصب و اجرا می‌کند)
+
+حذف برنامه (در صورت نیاز):
+rm -rf ~/.local/share/persian-clock-widget ~/.local/bin/persian-clock-widget ~/.local/share/applications/persian-clock-widget.desktop ~/.config/autostart/persian-clock-widget.desktop ~/.local/share/fonts/PersianClockWidget
+
+
+--------------------------------------------------------------------
+روش ۳: اجرای پرتابل بدون نصب (از آرشیو tar.gz)
+--------------------------------------------------------------------
+tar -xzf PersianClockWidget-linux-portable.tar.gz
+cd persian-clock-widget
+./scripts/run_linux.sh
+
+
+--------------------------------------------------------------------
+نصب پیش‌نیازها (فقط در صورت نبودن tkinter یا پخش‌کننده صوتی آلارم)
+--------------------------------------------------------------------
+# Ubuntu / Debian / Mint:
+sudo apt install -y python3 python3-tk mpv
+
+# Fedora:
+sudo dnf install -y python3 python3-tkinter mpv
+
+# Arch / Manjaro:
+sudo pacman -S python tk mpv

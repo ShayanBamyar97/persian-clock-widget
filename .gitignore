@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller build artifacts (release/PersianClockWidget.exe is kept separately)
+build/
+dist/
+*.spec
+
+# User runtime configuration & personal alarms
+data/config.json
+data/alarms.json
+data/custom_occasions.json
+config.json
+alarms.json
+custom_occasions.json
+
+# Node / npm
+node_modules/
+*.tgz
+
+# Environments
+.venv/
+venv/
+ENV/
