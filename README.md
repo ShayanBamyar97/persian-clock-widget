@@ -6,7 +6,8 @@
 ### **Persian Clock, Jalali Calendar & Smart Alarm Desktop Widget**
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
-[![Version](https://img.shields.io/badge/Version-2.0.0-7C3AED?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/Version-2.0.0-7C3AED?style=for-the-badge)](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)
+[![npm](https://img.shields.io/npm/v/persian-clock-widget?style=for-the-badge&logo=npm&color=CB3837)](https://www.npmjs.com/package/persian-clock-widget)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](#)
 [![MCP](https://img.shields.io/badge/AI%20Ready-MCP%20%26%20REST%20API-10B981?style=for-the-badge)](#)
 [![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
@@ -118,10 +119,32 @@ persian-clock-widget/
 
 ## 🚀 نحوه دانلود و اجرای سریع (بدون نیاز به پایتون)
 
-اگر نمی‌خواهید پایتون یا هیچ پیش‌نیازی روی سیستم نصب کنید:
-1. وارد پوشه **[`release/windows/`](release/windows/)** شوید.
-2. فایل **[`PersianClockWidget.exe`](release/windows/PersianClockWidget.exe)** را اجرا کنید (می‌توانید این تک‌فایل را به هر کامپیوتر دیگری هم منتقل کنید؛ تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل خود فایل `.exe` قرار دارند).
+### ۱. دانلود از GitHub Releases (پیشنهادی)
+1. وارد صفحه **[Releases در گیت‌هاب](https://github.com/ShayanBamyar97/persian-clock-widget/releases)** (یا پوشه [`release/windows/v2/`](release/windows/v2/)) شوید.
+2. فایل **`PersianClockWidget.exe`** (یا `PersianClockWidget.zip`) را دانلود و اجرا کنید؛ تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل خود فایل `.exe` قرار دارند.
 3. ویجت در گوشه بالا-راست مانیتور ظاهر می‌شود و آیکون آن در بخش **Hidden Icons (کنار ساعت ویندوز)** قرار می‌گیرد.
+
+### ۲. نصب و اجرا از طریق `npm` (نسخه کلاسیک v1.0.3 — ویندوز و لینوکس)
+```bash
+# نصب سراسری (Global)
+npm install -g persian-clock-widget
+
+# اجرای ویجت
+persian-clock
+# یا:
+persian-clock-widget
+```
+یا اجرای بدون نصب دائمی:
+```bash
+npx persian-clock-widget
+```
+
+### ۳. نسخه‌ها و Releases موجود
+
+| نسخه | شاخه (`Branch`) | روش نصب / دانلود | توضیحات |
+| :--- | :--- | :--- | :--- |
+| **[v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)** | `feat/v2-dev-ai-suite` | [GitHub Release v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0) | **Dev & AI Suite**: پومودورو، Cron/Timer، تولید داده تست، REST API و MCP سرور برای هوش مصنوعی |
+| **[v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3)** | [`main`](https://github.com/ShayanBamyar97/persian-clock-widget/tree/main) | `npm i -g persian-clock-widget` / [GitHub Release v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3) | نسخه کلاسیک سبک + مانیتورینگ و قفل شهر/IP، تاریخچه ۳ روزه و اصلاح کامل تسک‌بار |
 
 ---
 
