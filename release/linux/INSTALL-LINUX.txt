@@ -7,7 +7,7 @@
 روش ۱: نصب با فایل .deb (اوبونتو، دبیان، مینت، Pop!_OS، کالی)
 --------------------------------------------------------------------
 sudo apt update
-sudo apt install ./persian-clock-widget_2.0.0_all.deb
+sudo apt install ./PersianClockWidget-v2.0.0-linux-all.deb
 
 اجرا پس از نصب:
 persian-clock-widget
@@ -20,8 +20,8 @@ sudo apt remove persian-clock-widget
 --------------------------------------------------------------------
 روش ۲: نصب تک‌فایلی روی تمام توزیع‌ها (Ubuntu, Arch, Fedora, ...)
 --------------------------------------------------------------------
-chmod +x PersianClockWidget-Linux-Installer.sh
-bash PersianClockWidget-Linux-Installer.sh
+chmod +x PersianClockWidget-v2.0.0-linux-installer.sh
+bash PersianClockWidget-v2.0.0-linux-installer.sh
 
 (برنامه، فونت‌های وزیر، میانبر منو و اجرای خودکار با شروع لینوکس را نصب و اجرا می‌کند)
 
@@ -32,7 +32,7 @@ rm -rf ~/.local/share/persian-clock-widget ~/.local/bin/persian-clock-widget ~/.
 --------------------------------------------------------------------
 روش ۳: اجرای پرتابل بدون نصب (از آرشیو tar.gz)
 --------------------------------------------------------------------
-tar -xzf PersianClockWidget-linux-portable.tar.gz
+tar -xzf PersianClockWidget-v2.0.0-linux-portable.tar.gz
 cd persian-clock-widget
 ./scripts/run_linux.sh
 

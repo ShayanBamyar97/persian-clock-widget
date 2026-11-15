@@ -119,12 +119,14 @@ persian-clock-widget/
 
 ## 🚀 راهنمای نصب و اجرا در تمام سیستم‌عامل‌ها (Windows / Linux / macOS)
 
-### 🪟 ۱. ویندوز (Windows 10 / 11)
-**روش الف — فایل اجرایی آماده (بدون نیاز به پایتون یا Node.js):**
-1. از صفحه **[Releases در گیت‌هاب](https://github.com/ShayanBamyar97/persian-clock-widget/releases)** (یا پوشه [`release/windows/v2/`](release/windows/v2/)) فایل **`PersianClockWidget.exe`** یا **`PersianClockWidget.zip`** را دانلود و اجرا کنید.
-2. تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل فایل `.exe` قرار دارند.
+### 🪟 ۱. ویندوز (Windows 10 / 11 — 64-bit و 32-bit)
+**روش الف — فایل اجرایی آماده (نسخه ۶۴ بیتی `win-x64`، بدون نیاز به پایتون یا Node.js):**
+- دانلود مستقیم فایل اجرایی: **[`PersianClockWidget-v2.0.0-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.exe)**
+- دانلود فایل فشرده: **[`PersianClockWidget-v2.0.0-win-x64.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.zip)**
+- تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل فایل `.exe` قرار دارند.
 
-**روش ب — نصب با `npm`:**
+**روش ب — ویندوز ۳۲ بیتی (`win-x86`) یا نصب با `npm`:**
+> فایل `.exe` آماده مخصوص ویندوز **۶۴ بیتی (`win-x64`)** است؛ در ویندوز **۳۲ بیتی** از طریق `npm` یا اجرای سورس با پایتون ۳۲ بیتی استفاده کنید.
 ```powershell
 npm install -g persian-clock-widget
 persian-clock
@@ -143,21 +145,24 @@ npx persian-clock-widget
 > - **Arch / Manjaro:** `sudo pacman -S python tk mpv`
 
 **روش الف — نصب با بسته `.deb` (اوبونتو، دبیان، لینوکس مینت، Pop!_OS، کالی):**
+- دانلود: **[`PersianClockWidget-v2.0.0-linux-all.deb`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-all.deb)**
 ```bash
 sudo apt update
-sudo apt install ./persian-clock-widget_2.0.0_all.deb
+sudo apt install ./PersianClockWidget-v2.0.0-linux-all.deb
 persian-clock-widget
 ```
 
 **روش ب — اسکریپت نصب خودکار روی تمام توزیع‌ها:**
+- دانلود: **[`PersianClockWidget-v2.0.0-linux-installer.sh`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-installer.sh)**
 ```bash
-chmod +x PersianClockWidget-Linux-Installer.sh
-bash PersianClockWidget-Linux-Installer.sh
+chmod +x PersianClockWidget-v2.0.0-linux-installer.sh
+bash PersianClockWidget-v2.0.0-linux-installer.sh
 ```
 
 **روش ج — نسخه پرتابل بدون نصب (`tar.gz`):**
+- دانلود: **[`PersianClockWidget-v2.0.0-linux-portable.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-portable.tar.gz)**
 ```bash
-tar -xzf PersianClockWidget-linux-portable.tar.gz
+tar -xzf PersianClockWidget-v2.0.0-linux-portable.tar.gz
 cd persian-clock-widget
 ./scripts/run_linux.sh
 ```
@@ -175,21 +180,18 @@ persian-clock
 ```bash
 brew install python python-tk
 ```
-2. سپس با **`npm`** نصب و اجرا کنید:
-```bash
-npm install -g persian-clock-widget
-persian-clock
-```
-یا با `npx`:
-```bash
-npx persian-clock-widget
-```
-**یا اجرا از سورس کد در مک:**
-```bash
-git clone https://github.com/ShayanBamyar97/persian-clock-widget.git
-cd persian-clock-widget
-python3 main.py
-```
+2. **روش الف — بسته آماده پرتابل مک (`macos-universal`):**
+   - دانلود: **[`PersianClockWidget-v2.0.0-macos-universal.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-macos-universal.tar.gz)**
+   ```bash
+   tar -xzf PersianClockWidget-v2.0.0-macos-universal.tar.gz
+   cd persian-clock-widget
+   ./PersianClockWidget.command
+   ```
+3. **روش ب — نصب با `npm`:**
+   ```bash
+   npm install -g persian-clock-widget
+   persian-clock
+   ```
 
 > **نکته:** قابلیت «جایگزینی ساعت در تسک‌بار» مخصوص سیستم‌عامل ویندوز است؛ سایر امکانات (ویجت دسکتاپ، تقویم شمسی، آلارم‌ها، پایش و قفل IP، ابزارهای برنامه‌نویسان و سرویس هوش مصنوعی) در لینوکس و macOS هم قابل استفاده هستند.
 
