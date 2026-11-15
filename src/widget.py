@@ -50,7 +50,7 @@ try:
         get_windows11_tray_clock_hidden,
         set_windows11_tray_clock_hidden,
     )
-    from src.ip_monitor import check_ip_lock_mismatch, fetch_ip_geolocation
+    from src.ip_monitor import IpHistoryStore, check_ip_lock_mismatch, fetch_ip_geolocation
 except ImportError:
     from alarm_manager import (
         AlarmManagerWindow,
@@ -87,7 +87,7 @@ except ImportError:
         get_windows11_tray_clock_hidden,
         set_windows11_tray_clock_hidden,
     )
-    from ip_monitor import check_ip_lock_mismatch, fetch_ip_geolocation
+    from ip_monitor import IpHistoryStore, check_ip_lock_mismatch, fetch_ip_geolocation
 
 DATA_DIR = get_data_dir()
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -363,6 +363,10 @@ class PersianClockWidget:
         self._ip_alert_active = False
         self._ip_last_alert_key = ""
         self._ip_alert_popup: AnimatedBellPopup | None = None
+        self.ip_history_store = IpHistoryStore(
+            os.path.join(get_data_dir(), "ip_history.json"),
+            retention_days=3,
+        )
 
         self._build_compact_ui()
         self._build_lock_badge_window()
@@ -3854,6 +3858,13 @@ class PersianClockWidget:
         self._ip_fetch_inflight = False
         if info.get("ok"):
             self._ip_info = info
+            try:
+                now_teh = datetime.now(TEHRAN_TZ)
+                jy, jm, jd = gregorian_to_jalali(now_teh.year, now_teh.month, now_teh.day)
+                j_date = f"{jy:04d}/{jm:02d}/{jd:02d}"
+            except Exception:
+                j_date = ""
+            self.ip_history_store.record_if_changed(self._ip_info, jalali_date=j_date)
         changed, reason = check_ip_lock_mismatch(self._ip_info, self.config)
         if changed:
             self._ip_alert_active = True
@@ -3979,6 +3990,25 @@ class PersianClockWidget:
         else:
             labels["status"].configure(text="🔓 قفل غیرفعال است", fg="#CBD5E1", bg="#1E293B")
 
+        hist_cnt_lbl = labels.get("hist_count")
+        hist_box = labels.get("hist_list")
+        if hist_cnt_lbl and hist_box:
+            entries = self.ip_history_store.get_recent_entries()
+            chg_count = self.ip_history_store.get_change_count()
+            hist_cnt_lbl.configure(
+                text=f"📜 تغییرات ۳ روز اخیر: {chg_count} بار ({len(entries)} موقعیت ثبت‌شده)"
+            )
+            hist_box.delete(0, tk.END)
+            if not entries:
+                hist_box.insert(tk.END, "هنوز تغییری ثبت نشده است")
+            else:
+                for item in entries:
+                    dt = f"{item.get('jalali_date', '')} {item.get('time_str', '')}".strip()
+                    city = item.get("city") or "—"
+                    ctry = item.get("country") or item.get("country_code") or "—"
+                    ip_s = item.get("ip") or "—"
+                    hist_box.insert(tk.END, f"{dt}  |  {city}, {ctry}  |  {ip_s}")
+
     def open_ip_monitor_window(self):
         if self.ip_win and self.ip_win.winfo_exists():
             self.ip_win.lift()
@@ -3992,7 +4022,7 @@ class PersianClockWidget:
         win.overrideredirect(True)
         win.configure(bg="#0B1120")
         win.attributes("-topmost", True)
-        w, h = 380, 420
+        w, h = 410, 575
         sx = (win.winfo_screenwidth() - w) // 2
         sy = (win.winfo_screenheight() - h) // 2
         win.geometry(f"{w}x{h}+{sx}+{sy}")
@@ -4164,6 +4194,56 @@ class PersianClockWidget:
                 cursor="hand2",
                 command=_set_iv,
             ).pack(side="right", padx=1)
+
+        # بخش تاریخچه تغییرات لوکیشن ۳ روز گذشته
+        hist_hdr = tk.Frame(outer, bg="#0B1120")
+        hist_hdr.pack(fill="x", pady=(10, 4))
+        hist_cnt_lbl = tk.Label(
+            hist_hdr,
+            text="📜 تغییرات ۳ روز اخیر: 0 بار",
+            font=(font_fa, 8, "bold"),
+            fg="#38BDF8",
+            bg="#0B1120",
+        )
+        hist_cnt_lbl.pack(side="right")
+
+        def _clear_hist():
+            self.ip_history_store.clear()
+            self._refresh_ip_window_labels()
+            self._show_toast("تاریخچه لوکیشن پاک شد")
+
+        tk.Button(
+            hist_hdr,
+            text="پاک کردن",
+            font=(font_fa, 8),
+            bg="#1E293B",
+            fg="#FCA5A5",
+            relief="flat",
+            padx=6,
+            cursor="hand2",
+            command=_clear_hist,
+        ).pack(side="left")
+
+        hist_frame = tk.Frame(outer, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
+        hist_frame.pack(fill="both", expand=True)
+        hist_scroll = tk.Scrollbar(hist_frame, orient="vertical")
+        hist_box = tk.Listbox(
+            hist_frame,
+            yscrollcommand=hist_scroll.set,
+            font=("Consolas", 8),
+            bg="#111827",
+            fg="#E2E8F0",
+            selectbackground="#1E3A5F",
+            selectforeground="#FFFFFF",
+            bd=0,
+            highlightthickness=0,
+            activestyle="none",
+        )
+        hist_scroll.config(command=hist_box.yview)
+        hist_scroll.pack(side="left", fill="y")
+        hist_box.pack(side="right", fill="both", expand=True, padx=4, pady=4)
+        self._ip_win_labels["hist_count"] = hist_cnt_lbl
+        self._ip_win_labels["hist_list"] = hist_box
 
         self._refresh_ip_window_labels()
         self._trigger_ip_check_async()

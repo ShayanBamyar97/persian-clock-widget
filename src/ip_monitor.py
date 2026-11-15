@@ -6,6 +6,8 @@
 
 from datetime import datetime
 import json
+import os
+import time
 import urllib.request
 
 
@@ -145,3 +147,86 @@ def check_ip_lock_mismatch(info: dict, config: dict) -> tuple[bool, str]:
         return True, f"لوکیشن تغییر کرد: {locked_cc} ⟵ {cur_cc} ({cur_ip})"
 
     return False, ""
+
+
+class IpHistoryStore:
+    """ذخیره و نگهداری تاریخچه تغییرات IP، شهر و کشور برای ۳ روز گذشته"""
+
+    def __init__(self, history_path: str, retention_days: int = 3):
+        self.history_path = history_path
+        self.retention_seconds = max(1, int(retention_days)) * 86400
+        self.entries: list[dict] = []
+        self._load()
+
+    def _prune(self):
+        cutoff = time.time() - self.retention_seconds
+        self.entries = [e for e in self.entries if float(e.get("ts", 0)) >= cutoff]
+
+    def _load(self):
+        if os.path.exists(self.history_path):
+            try:
+                with open(self.history_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, list):
+                    self.entries = data
+            except Exception:
+                self.entries = []
+        self._prune()
+
+    def _save(self):
+        try:
+            os.makedirs(os.path.dirname(self.history_path), exist_ok=True)
+            with open(self.history_path, "w", encoding="utf-8") as f:
+                json.dump(self.entries, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def record_if_changed(self, info: dict, jalali_date: str = "") -> bool:
+        if not info or not info.get("ok"):
+            return False
+        self._prune()
+        ip = (info.get("ip") or "").strip()
+        city = (info.get("city") or "").strip()
+        country = (info.get("country") or "").strip()
+        cc = (info.get("country_code") or "").strip()
+        if not ip:
+            return False
+
+        if self.entries:
+            last = self.entries[-1]
+            if (
+                last.get("ip", "") == ip
+                and last.get("city", "").lower() == city.lower()
+                and last.get("country_code", "").lower() == cc.lower()
+            ):
+                return False
+
+        now = datetime.now()
+        self.entries.append(
+            {
+                "ts": time.time(),
+                "time_str": now.strftime("%H:%M:%S"),
+                "jalali_date": jalali_date or now.strftime("%Y-%m-%d"),
+                "ip": ip,
+                "city": city,
+                "country": country,
+                "country_code": cc,
+                "isp": (info.get("isp") or "").strip(),
+            }
+        )
+        self._save()
+        return True
+
+    def get_recent_entries(self) -> list[dict]:
+        """برگرداندن لیست تاریخچه ۳ روز اخیر (جدیدترین در ابتدا)"""
+        self._prune()
+        return list(reversed(self.entries))
+
+    def get_change_count(self) -> int:
+        """تعداد دفعات تغییر لوکیشن در ۳ روز گذشته"""
+        self._prune()
+        return max(0, len(self.entries) - 1)
+
+    def clear(self):
+        self.entries = []
+        self._save()
