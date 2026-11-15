@@ -379,7 +379,7 @@ class _SingleTaskbarReplacer:
         try:
             user32 = ctypes.windll.user32
             fg = user32.GetForegroundWindow()
-            if not fg:
+            if not fg or not user32.IsWindowVisible(fg):
                 return False
             cls = ctypes.create_unicode_buffer(64)
             user32.GetClassNameW(fg, cls, 64)
@@ -394,8 +394,39 @@ class _SingleTaskbarReplacer:
                 "TopLevelWindowForOverflowXamlIsland",
                 "NotifyIconOverflowWindow",
                 "SearchPane",
+                "Shell_InputSwitchTopLevelWindow",
+                "Xaml_WindowedPopupClass",
             ):
                 return False
+            # استثنا کردن تمام فرآیندهای شِل ویندوز (منوی استارت، جست‌وجو، تسک‌بار، ویجت‌ها و...)
+            try:
+                kernel32 = ctypes.windll.kernel32
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(fg, ctypes.byref(pid))
+                if pid.value:
+                    h_proc = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
+                    if h_proc:
+                        try:
+                            buf = ctypes.create_unicode_buffer(260)
+                            sz = wintypes.DWORD(260)
+                            if kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(sz)):
+                                exe_name = buf.value.rsplit("\\", 1)[-1].lower()
+                                if exe_name in (
+                                    "explorer.exe",
+                                    "startmenuexperiencehost.exe",
+                                    "searchhost.exe",
+                                    "searchapp.exe",
+                                    "shellexperiencehost.exe",
+                                    "textinputhost.exe",
+                                    "widgets.exe",
+                                    "widgetservice.exe",
+                                    "lockapp.exe",
+                                ):
+                                    return False
+                        finally:
+                            kernel32.CloseHandle(h_proc)
+            except Exception:
+                pass
             r = wintypes.RECT()
             user32.GetWindowRect(fg, ctypes.byref(r))
             geo = self._current_geo or get_taskbar_geometry()
@@ -594,10 +625,6 @@ class _SingleTaskbarReplacer:
         if not self.win.winfo_viewable():
             self.win.deiconify()
         apply_z_order_and_clickthrough(self.win, "topmost", click_through=False)
-        try:
-            self.win.lift()
-        except Exception:
-            pass
 
     def _on_press(self, event):
         self._hide_tip()
