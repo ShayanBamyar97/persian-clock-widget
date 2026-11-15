@@ -447,21 +447,68 @@ class _SingleTaskbarReplacer:
         except Exception:
             return False
 
+    def _find_taskbar_hwnd(self) -> int | None:
+        if not IS_WIN:
+            return None
+        try:
+            user32 = ctypes.windll.user32
+            geo = self._current_geo or get_taskbar_geometry()
+            tb_l, tb_t, tb_r, tb_b, _ = geo
+            cx = (tb_l + tb_r) // 2
+            cy = (tb_t + tb_b) // 2
+            found: list[int] = []
+            WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+            def _cb(hwnd, _lp):
+                cls = ctypes.create_unicode_buffer(64)
+                user32.GetClassNameW(hwnd, cls, 64)
+                if cls.value in ("Shell_TrayWnd", "Shell_SecondaryTrayWnd"):
+                    r = wintypes.RECT()
+                    if user32.GetWindowRect(hwnd, ctypes.byref(r)):
+                        if r.left <= cx < r.right and r.top <= cy < r.bottom:
+                            found.append(hwnd)
+                            return False
+                return True
+
+            user32.EnumWindows(WNDENUMPROC(_cb), 0)
+            if found:
+                return found[0]
+            if self.taskbar_index == 0:
+                h = user32.FindWindowW("Shell_TrayWnd", None)
+                return h or None
+        except Exception:
+            pass
+        return None
+
     def _attach_to_taskbar(self):
-        """تنظیم سبک غیرفعال‌ساز (بدون قفل شدن صف ورودی) و مخفی‌سازی ساعت ویندوز ۱۰ در صورت وجود"""
+        """جاسازی مستقیم پنجره در تسک‌بار ویندوز (WS_CHILD) تا با منوی استارت هرگز ناپدید نشود"""
         if not IS_WIN or not self.win or not self.win.winfo_exists():
             return
         try:
             user32 = ctypes.windll.user32
             hwnd = self._get_hwnd()
+            GWL_STYLE = -16
             GWL_EXSTYLE = -20
+            WS_CHILD = 0x40000000
+            WS_POPUP = 0x80000000
+            WS_CLIPSIBLINGS = 0x04000000
             WS_EX_NOACTIVATE = 0x08000000
             WS_EX_TOOLWINDOW = 0x00000080
             WS_EX_APPWINDOW = 0x00040000
+
             ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            new_ex = (ex_style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW
+            new_ex = ctypes.c_long((ex_style | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW).value
             if new_ex != ex_style:
                 user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_ex)
+
+            tb_hwnd = self._find_taskbar_hwnd()
+            if tb_hwnd:
+                style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+                new_style = ctypes.c_long((style & ~WS_POPUP) | WS_CHILD | WS_CLIPSIBLINGS).value
+                user32.SetWindowLongW(hwnd, GWL_STYLE, new_style)
+                user32.SetParent(hwnd, tb_hwnd)
+                if user32.GetParent(hwnd) == tb_hwnd:
+                    self._embedded_parent_hwnd = tb_hwnd
 
             # در ویندوز ۱۰، ساعت کلاسیک TrayClockWClass را مستقیماً مخفی کن
             clk_hwnd = find_win10_tray_clock_hwnd()
@@ -473,6 +520,30 @@ class _SingleTaskbarReplacer:
 
     def _position_in_taskbar(self, x: int, y: int, w: int, h: int, tb_l: int, tb_t: int):
         """قرار دادن پنجره دقیقاً در مختصات تسک‌بار"""
+        if self._embedded_parent_hwnd and IS_WIN:
+            try:
+                user32 = ctypes.windll.user32
+                hwnd = self._get_hwnd()
+                if self._is_foreground_fullscreen():
+                    user32.ShowWindow(hwnd, 0)  # SW_HIDE
+                    return
+                rel_x = int(x - tb_l)
+                rel_y = int(y - tb_t)
+                SWP_NOACTIVATE = 0x0010
+                SWP_SHOWWINDOW = 0x0040
+                SWP_FRAMECHANGED = 0x0020
+                user32.SetWindowPos(
+                    hwnd,
+                    0,  # HWND_TOP داخل تسک‌بار
+                    rel_x,
+                    rel_y,
+                    int(w),
+                    int(h),
+                    SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_FRAMECHANGED,
+                )
+                return
+            except Exception:
+                pass
         if self._is_foreground_fullscreen():
             if self.win.winfo_viewable():
                 self.win.withdraw()
@@ -618,6 +689,29 @@ class _SingleTaskbarReplacer:
     def keep_on_top(self):
         if not self.win or not self.win.winfo_exists():
             return
+        if self._embedded_parent_hwnd and IS_WIN:
+            try:
+                user32 = ctypes.windll.user32
+                hwnd = self._get_hwnd()
+                if not user32.IsWindow(self._embedded_parent_hwnd) or user32.GetParent(hwnd) != self._embedded_parent_hwnd:
+                    self._embedded_parent_hwnd = None
+                else:
+                    if self._is_foreground_fullscreen():
+                        user32.ShowWindow(hwnd, 0)  # SW_HIDE
+                        return
+                    SWP_NOMOVE = 0x0002
+                    SWP_NOSIZE = 0x0001
+                    SWP_NOACTIVATE = 0x0010
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos(
+                        hwnd,
+                        0,  # HWND_TOP داخل تسک‌بار
+                        0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+                    )
+                    return
+            except Exception:
+                pass
         if self._is_foreground_fullscreen():
             if self.win.winfo_viewable():
                 self.win.withdraw()

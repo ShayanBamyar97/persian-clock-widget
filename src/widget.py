@@ -3477,7 +3477,7 @@ class PersianClockWidget:
         now_utc = datetime.now(timezone.utc)
 
         if primary_tz == "utc":
-            time_str = format_digits(now_utc.strftime("%H:%M:%S" if show_seconds else "%H:%M"), use_fa)
+            time_str = format_digits(now_utc.strftime("%H:%M:%S"), use_fa)
             date_str = format_digits(f"UTC  •  {now_utc.strftime('%Y-%m-%d')}", use_fa)
             date_fill = self.config.get("accent_color", "#38BDF8")
             utc_line_str = (
