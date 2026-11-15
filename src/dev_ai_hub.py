@@ -13,8 +13,10 @@
 
 from datetime import datetime, timedelta
 import json
+import time
 import tkinter as tk
 from tkinter import ttk
+import urllib.request
 
 try:
     from src.calendar_data import TEHRAN_TZ, gregorian_to_jalali
@@ -606,12 +608,19 @@ class DevAiHubWindow:
     # ── تب ۵: سرور محلی AI (HTTP REST + MCP) ──
     def _build_tab_ai_mcp(self, parent: tk.Frame, font_fa: str):
         api = getattr(self.app, "local_api", None)
-        port = int(self.app.config.get("ai_api_port", 17845))
+        port_var = tk.StringVar(value=str(int(self.app.config.get("ai_api_port", 17845))))
         is_on = bool(api and api.running)
+
+        def _cur_port() -> int:
+            try:
+                p = int(port_var.get().strip())
+                return p if 1024 <= p <= 65535 else 17845
+            except Exception:
+                return 17845
 
         tk.Label(
             parent,
-            text="اتصال مستقیم ابزارهای هوش مصنوعی (Claude Desktop، Antigravity، Cursor) و اسکریپت‌های محلی به ویجت — ۱۰۰٪ امن و فقط روی 127.0.0.1:",
+            text="درگاه امن و محلی AI (فقط روی 127.0.0.1 — بدون ارسال داده به اینترنت) برای اتصال Claude، Antigravity، Cursor و اسکریپت‌ها:",
             font=(font_fa, 8),
             fg="#CBD5E1",
             bg="#0F172A",
@@ -622,7 +631,7 @@ class DevAiHubWindow:
 
         st_lbl = tk.Label(
             parent,
-            text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{port}" if is_on else "🔴 سرور محلی AI متوقف است",
+            text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{_cur_port()}  (۱۰ ابزار MCP آماده)" if is_on else "🔴 سرور محلی AI متوقف است",
             font=(font_fa, 9, "bold"),
             fg="#6EE7B7" if is_on else "#FCA5A5",
             bg="#064E3B" if is_on else "#450A0A",
@@ -630,47 +639,137 @@ class DevAiHubWindow:
         )
         st_lbl.pack(fill="x", pady=(0, 6))
 
+        def _update_status():
+            now_on = bool(api and api.running)
+            p = _cur_port()
+            if now_on:
+                st_lbl.configure(
+                    text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{p}  (۱۰ ابزار MCP آماده)",
+                    fg="#6EE7B7",
+                    bg="#064E3B",
+                )
+            else:
+                err = getattr(api, "last_error", "") if api else ""
+                st_lbl.configure(
+                    text=f"🔴 سرور متوقف است{(' — ' + err) if err else ''}",
+                    fg="#FCA5A5",
+                    bg="#450A0A",
+                )
+
         def _toggle_srv():
             if not api:
                 return
+            p = _cur_port()
+            self.app.config["ai_api_port"] = p
             if api.running:
                 api.stop()
                 self.app.config["ai_api_enabled"] = False
             else:
-                api.start()
+                api.start(port=p)
                 self.app.config["ai_api_enabled"] = True
             self.app._save_config()
-            now_on = api.running
-            st_lbl.configure(
-                text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{port}" if now_on else "🔴 سرور محلی AI متوقف است",
-                fg="#6EE7B7" if now_on else "#FCA5A5",
-                bg="#064E3B" if now_on else "#450A0A",
-            )
+            _update_status()
+            _render_view(active_view["name"])
 
+        def _apply_port():
+            p = _cur_port()
+            port_var.set(str(p))
+            self.app.config["ai_api_port"] = p
+            self.app._save_config()
+            if api and api.running:
+                api.stop()
+                api.start(port=p)
+            _update_status()
+            _render_view(active_view["name"])
+            self.app._show_toast(f"✓ پورت سرور روی {p} تنظیم شد")
+
+        def _test_health():
+            p = _cur_port()
+            try:
+                t0 = time.perf_counter()
+                with urllib.request.urlopen(f"http://127.0.0.1:{p}/health", timeout=2.0) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                ms = int((time.perf_counter() - t0) * 1000)
+                if data.get("ok"):
+                    self.app._show_toast(f"✓ پاسخ سالم از سرور ({ms}ms | {data.get('tools_count', 10)} ابزار)")
+                    _render_view("logs")
+                else:
+                    self.app._show_toast("⚠ پاسخ نامعتبر از سرور")
+            except Exception as exc:
+                self.app._show_toast(f"✕ خطا در اتصال: {exc}")
+
+        ctrl_row = tk.Frame(parent, bg="#0F172A")
+        ctrl_row.pack(fill="x", pady=(0, 6))
         tk.Button(
-            parent,
-            text="روشن / خاموش کردن سرور محلی AI",
+            ctrl_row,
+            text="🔌 روشن / خاموش",
             font=(font_fa, 8, "bold"),
             bg="#1E293B",
             fg="#38BDF8",
             relief="flat",
-            pady=5,
+            padx=10,
+            pady=4,
             cursor="hand2",
             command=_toggle_srv,
-        ).pack(fill="x", pady=(0, 8))
+        ).pack(side="right")
+        tk.Button(
+            ctrl_row,
+            text="🧪 تست زنده /health",
+            font=(font_fa, 8, "bold"),
+            bg="#065F46",
+            fg="#A7F3D0",
+            relief="flat",
+            padx=10,
+            pady=4,
+            cursor="hand2",
+            command=_test_health,
+        ).pack(side="right", padx=(0, 6))
 
-        mcp_snippet = json.dumps(
-            {
-                "mcpServers": {
-                    "persian-clock-widget": {
-                        "url": f"http://127.0.0.1:{port}/mcp",
-                    }
-                }
-            },
-            indent=2,
-        )
+        tk.Button(
+            ctrl_row,
+            text="اعمال پورت",
+            font=(font_fa, 8),
+            bg="#334155",
+            fg="#F8FAFC",
+            relief="flat",
+            padx=8,
+            pady=4,
+            cursor="hand2",
+            command=_apply_port,
+        ).pack(side="left")
+        tk.Entry(
+            ctrl_row,
+            textvariable=port_var,
+            width=7,
+            font=("Consolas", 9, "bold"),
+            bg="#1E293B",
+            fg="#FDE68A",
+            insertbackground="#FDE68A",
+            justify="center",
+            relief="flat",
+        ).pack(side="left", ipady=3, padx=(0, 6))
+        tk.Label(ctrl_row, text="پورت:", font=(font_fa, 8), fg="#94A3B8", bg="#0F172A").pack(side="left")
 
-        # دکمه‌های پایین را قبل از باکس اسکرول‌دار pack می‌کنیم تا هرگز نصفه یا بریده نشوند
+        def _mcp_snippet() -> str:
+            return json.dumps(
+                {"mcpServers": {"persian-clock-widget": {"url": f"http://127.0.0.1:{_cur_port()}/mcp"}}},
+                indent=2,
+            )
+
+        def _curl_snippet() -> str:
+            p = _cur_port()
+            return (
+                f'curl -X POST http://127.0.0.1:{p}/alarms -H "Content-Type: application/json" '
+                f'-d \'{{"title": "بررسی سرور", "in_minutes": 15}}\''
+            )
+
+        # نوار تغییر نمای داخلی تب AI
+        sub_row = tk.Frame(parent, bg="#0F172A")
+        sub_row.pack(fill="x", pady=(0, 6))
+        active_view = {"name": "api"}
+        sub_btns: dict[str, tk.Button] = {}
+
+        # دکمه‌های پایین (همیشه چسبیده به پایین)
         btn_row = tk.Frame(parent, bg="#0F172A")
         btn_row.pack(side="bottom", fill="x", pady=(8, 0))
         tk.Button(
@@ -682,19 +781,31 @@ class DevAiHubWindow:
             relief="flat",
             pady=6,
             cursor="hand2",
-            command=lambda: self._copy(mcp_snippet, "کانفیگ MCP"),
+            command=lambda: self._copy(_mcp_snippet(), "کانفیگ MCP"),
         ).pack(side="right", fill="x", expand=True, padx=(4, 0))
         tk.Button(
             btn_row,
-            text="📋 کپی آدرس API",
+            text="📋 کپی cURL تست",
+            font=(font_fa, 8, "bold"),
+            bg="#0F766E",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=6,
+            padx=8,
+            cursor="hand2",
+            command=lambda: self._copy(_curl_snippet(), "دستور cURL"),
+        ).pack(side="left", padx=(0, 4))
+        tk.Button(
+            btn_row,
+            text="📋 کپی URL",
             font=(font_fa, 8, "bold"),
             bg="#0284C7",
             fg="#FFFFFF",
             relief="flat",
             pady=6,
-            padx=10,
+            padx=8,
             cursor="hand2",
-            command=lambda: self._copy(f"http://127.0.0.1:{port}", "آدرس REST API"),
+            command=lambda: self._copy(f"http://127.0.0.1:{_cur_port()}", "آدرس REST API"),
         ).pack(side="left", padx=(0, 4))
 
         txt_frame = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
@@ -721,21 +832,103 @@ class DevAiHubWindow:
         info_txt.tag_configure("ep", foreground="#34D399", font=("Consolas", 9, "bold"))
         info_txt.tag_configure("desc", foreground="#CBD5E1", font=(font_fa, 8))
         info_txt.tag_configure("code", foreground="#FDE68A", font=("Consolas", 9))
+        info_txt.tag_configure("err", foreground="#FCA5A5", font=("Consolas", 9))
 
-        info_txt.insert(tk.END, f"REST Endpoints (http://127.0.0.1:{port}):\n", "hdr")
-        endpoints = [
-            ("GET  /health ", "وضعیت سلامت سرور محلی\n"),
-            ("GET  /now    ", "ساعت دقیق تهران، تاریخ شمسی، UTC و وضعیت تعطیلی\n"),
-            ("GET  /ip     ", "IP فعلی، شهر/کشور، وضعیت قفل و تاریخچه ۳ روزه\n"),
-            ("GET  /alarms ", "لیست آلارم‌ها و رویدادهای ثبت‌شده\n"),
-            ("POST /alarms ", "ثبت یادآور یا اکشن زمان‌بندی‌شده (in_minutes یا jalali_date)\n"),
-            ("POST /timer  ", "شروع تایمر پومودورو از طریق API\n"),
-            ("POST /mcp    ", "درگاه MCP JSON-RPC 2.0 (tools/list, tools/call)\n\n"),
-        ]
-        for ep, desc in endpoints:
-            info_txt.insert(tk.END, f"  {ep} -> ", "ep")
-            info_txt.insert(tk.END, desc, "desc")
+        def _render_view(name: str):
+            active_view["name"] = name
+            for k, b in sub_btns.items():
+                b.configure(
+                    bg="#0284C7" if k == name else "#1E293B",
+                    fg="#FFFFFF" if k == name else "#CBD5E1",
+                )
+            p = _cur_port()
+            info_txt.configure(state="normal")
+            info_txt.delete("1.0", tk.END)
 
-        info_txt.insert(tk.END, "MCP Config (برای Claude / Antigravity / Cursor):\n", "hdr")
-        info_txt.insert(tk.END, mcp_snippet, "code")
-        info_txt.configure(state="disabled")
+            if name == "api":
+                info_txt.insert(tk.END, f"REST Endpoints (http://127.0.0.1:{p}):\n", "hdr")
+                endpoints = [
+                    ("GET  /health        ", "وضعیت سرور، پورت و آپتایم\n"),
+                    ("GET  /now           ", "ساعت تهران، تاریخ شمسی، UTC، Unix و تعطیلی\n"),
+                    ("GET  /ip            ", "IP فعلی، شهر/کشور، وضعیت قفل و تاریخچه ۳ روزه\n"),
+                    ("GET  /alarms        ", "لیست آلارم‌ها و رویدادهای ثبت‌شده\n"),
+                    ("GET  /dev/ids       ", "تولید UUID v4، ULID و NanoID\n"),
+                    ("GET  /logs          ", "آخرین درخواست‌های دریافت‌شده\n"),
+                    ("POST /convert       ", "تبدیل تاریخ شمسی / میلادی / Unix / ISO\n"),
+                    ("POST /ip/lock       ", "فعال/غیرفعال کردن قفل شهر/IP\n"),
+                    ("POST /alarms        ", "ثبت یادآور یا اکشن (in_minutes یا jalali_date)\n"),
+                    ("POST /alarms/delete ", "حذف آلارم با شناسه (id)\n"),
+                    ("POST /timer         ", "شروع تایمر پومودورو (minutes, label)\n"),
+                    ("POST /timer/stop    ", "توقف تایمر پومودورو\n"),
+                    ("POST /mcp           ", "درگاه MCP JSON-RPC 2.0\n\n"),
+                ]
+                for ep, desc in endpoints:
+                    info_txt.insert(tk.END, f"  {ep} -> ", "ep")
+                    info_txt.insert(tk.END, desc, "desc")
+
+                info_txt.insert(tk.END, "ابزارهای آماده MCP (۱۰ ابزار برای هوش مصنوعی):\n", "hdr")
+                mcp_list = [
+                    "get_persian_datetime",
+                    "convert_datetime",
+                    "get_ip_location_status",
+                    "toggle_ip_lock",
+                    "list_alarms",
+                    "schedule_reminder",
+                    "delete_alarm",
+                    "start_pomodoro_timer",
+                    "stop_pomodoro_timer",
+                    "generate_dev_ids",
+                ]
+                info_txt.insert(tk.END, "  • " + "\n  • ".join(mcp_list), "code")
+
+            elif name == "clients":
+                info_txt.insert(tk.END, "1) MCP Config (Claude Desktop / Antigravity / Cursor):\n", "hdr")
+                info_txt.insert(tk.END, _mcp_snippet() + "\n\n", "code")
+                info_txt.insert(tk.END, "2) نمونه cURL برای ثبت یادآور خودکار:\n", "hdr")
+                info_txt.insert(tk.END, _curl_snippet() + "\n\n", "code")
+                info_txt.insert(tk.END, "3) نمونه پایتون (تبدیل زمان با API محلی):\n", "hdr")
+                py_sample = (
+                    "import urllib.request, json\n"
+                    f"req = urllib.request.Request('http://127.0.0.1:{p}/convert',\n"
+                    "  data=json.dumps({'value': '1405/08/24 14:30'}).encode(),\n"
+                    "  headers={'Content-Type': 'application/json'})\n"
+                    "print(urllib.request.urlopen(req).read().decode())"
+                )
+                info_txt.insert(tk.END, py_sample, "code")
+
+            elif name == "logs":
+                info_txt.insert(tk.END, "📜 لاگ زنده درخواست‌های AI و API (۳۰ مورد اخیر):\n\n", "hdr")
+                logs = api.get_logs() if api else []
+                if not logs:
+                    info_txt.insert(tk.END, "هنوز درخواستی ثبت نشده است. دکمه «🧪 تست زنده /health» را بزنید.", "desc")
+                else:
+                    for item in logs:
+                        tag = "err" if int(item.get("status", 200)) >= 400 else "ep"
+                        det = f"  ({item['detail']})" if item.get("detail") else ""
+                        info_txt.insert(
+                            tk.END,
+                            f"[{item['time']}] {item['method']:<4} {item['path']:<15} -> {item['status']}{det}\n",
+                            tag,
+                        )
+
+            info_txt.configure(state="disabled")
+
+        for key, label in [
+            ("api", "📡 ابزارها و REST API"),
+            ("clients", "🔌 کانفیگ کلاینت‌ها"),
+            ("logs", "📜 لاگ زنده AI"),
+        ]:
+            b = tk.Button(
+                sub_row,
+                text=label,
+                font=(font_fa, 8, "bold"),
+                relief="flat",
+                padx=8,
+                pady=4,
+                cursor="hand2",
+                command=lambda k=key: _render_view(k),
+            )
+            b.pack(side="right", padx=(4, 0))
+            sub_btns[key] = b
+
+        _render_view("api")

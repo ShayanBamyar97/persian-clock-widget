@@ -13,8 +13,10 @@ import time
 
 try:
     from src.calendar_data import TEHRAN_TZ, get_today_info, gregorian_to_jalali
+    from src.dev_tools import generate_guid, generate_nanoid, generate_ulid, parse_any_time_input
 except ImportError:
     from calendar_data import TEHRAN_TZ, get_today_info, gregorian_to_jalali
+    from dev_tools import generate_guid, generate_nanoid, generate_ulid, parse_any_time_input
 
 
 DEFAULT_API_PORT = 17845
@@ -26,9 +28,32 @@ MCP_TOOLS = [
         "inputSchema": {"type": "object", "properties": {}, "required": []},
     },
     {
+        "name": "convert_datetime",
+        "description": "تبدیل دقیق هر فرمت زمان (Unix ثانیه/میلی‌ثانیه، ISO-8601، میلادی یا شمسی مثل 1405/08/24 14:30) به تمام فرمت‌ها",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "value": {"type": "string", "description": "مقدار زمان ورودی (مثلاً 1763200000 یا 1405/08/24 14:30 یا 2026-11-15T12:00:00Z)"}
+            },
+            "required": ["value"],
+        },
+    },
+    {
         "name": "get_ip_location_status",
         "description": "دریافت IP عمومی فعلی سیستم، شهر، کشور، وضعیت قفل لوکیشن و تاریخچه تغییرات ۳ روز گذشته",
         "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "toggle_ip_lock",
+        "description": "فعال یا غیرفعال کردن قفل شهر/IP روی موقعیت فعلی سیستم برای جلوگیری از تغییر ناگهانی IP",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean", "description": "true برای قفل کردن روی موقعیت فعلی، false برای باز کردن قفل"},
+                "mode": {"type": "string", "enum": ["city", "ip", "both"], "description": "حالت قفل (پیش‌فرض city)"},
+            },
+            "required": ["enabled"],
+        },
     },
     {
         "name": "list_alarms",
@@ -54,6 +79,17 @@ MCP_TOOLS = [
         },
     },
     {
+        "name": "delete_alarm",
+        "description": "حذف یک آلارم یا یادآور ثبت‌شده با شناسه (id)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "شناسه آلارم برای حذف"},
+            },
+            "required": ["id"],
+        },
+    },
+    {
         "name": "start_pomodoro_timer",
         "description": "شروع تایمر تمرکز / پومودورو روی ویجت برای مدت مشخص (برحسب دقیقه)",
         "inputSchema": {
@@ -64,6 +100,16 @@ MCP_TOOLS = [
             },
             "required": [],
         },
+    },
+    {
+        "name": "stop_pomodoro_timer",
+        "description": "توقف تایمر پومودورو فعال روی ویجت",
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "generate_dev_ids",
+        "description": "تولید هم‌زمان UUID v4، ULID و NanoID برای تست API و دیتابیس",
+        "inputSchema": {"type": "object", "properties": {}, "required": []},
     },
 ]
 
@@ -83,6 +129,25 @@ class LocalWidgetApiServer:
         self._thread: threading.Thread | None = None
         self.running = False
         self.last_error = ""
+        self.started_at: float | None = None
+        self.recent_logs: list[dict] = []
+        self._log_lock = threading.Lock()
+
+    def _add_log(self, method: str, path: str, status: int, detail: str = ""):
+        entry = {
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "method": method,
+            "path": path,
+            "status": status,
+            "detail": detail,
+        }
+        with self._log_lock:
+            self.recent_logs.insert(0, entry)
+            self.recent_logs = self.recent_logs[:30]
+
+    def get_logs(self) -> list[dict]:
+        with self._log_lock:
+            return list(self.recent_logs)
 
     def _run_on_ui(self, fn, timeout: float = 3.0):
         done = threading.Event()
@@ -112,9 +177,17 @@ class LocalWidgetApiServer:
             "tehran_time": f"{info['time_str']}:{int(info['second']):02d}",
             "utc_iso": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "unix_seconds": int(time.time()),
+            "unix_ms": int(time.time() * 1000),
             "is_holiday": bool(info.get("is_holiday")),
             "occasion": info.get("occasion") or "",
         }
+
+    def _convert_datetime(self, body: dict) -> dict:
+        raw = str(body.get("value") or "").strip()
+        if not raw:
+            raise ValueError("فیلد value الزامی است")
+        res = parse_any_time_input(raw)
+        return {"ok": True, "input": raw, "converted": res}
 
     def _get_ip_payload(self) -> dict:
         def _read():
@@ -131,6 +204,35 @@ class LocalWidgetApiServer:
             }
 
         return self._run_on_ui(_read)
+
+    def _toggle_ip_lock(self, body: dict) -> dict:
+        enabled = bool(body.get("enabled", True))
+        mode = str(body.get("mode") or self.app.config.get("ip_lock_mode", "city")).strip().lower()
+        if mode not in ("city", "ip", "both"):
+            mode = "city"
+
+        def _apply():
+            self.app.config["ip_lock_mode"] = mode
+            if enabled:
+                info = getattr(self.app, "_ip_info", {}) or {}
+                self.app.config["ip_lock_enabled"] = True
+                self.app.config["ip_locked_city"] = info.get("city", "") or self.app.config.get("ip_locked_city", "")
+                self.app.config["ip_locked_country"] = info.get("country_code", "") or self.app.config.get("ip_locked_country", "")
+                self.app.config["ip_locked_ip"] = info.get("ip", "") or self.app.config.get("ip_locked_ip", "")
+            else:
+                self.app.config["ip_lock_enabled"] = False
+                self.app._ip_alert_active = False
+            self.app._save_config()
+            self.app._refresh_ip_window_labels()
+            return {
+                "ok": True,
+                "lock_enabled": self.app.config["ip_lock_enabled"],
+                "lock_mode": mode,
+                "locked_city": self.app.config.get("ip_locked_city", ""),
+                "locked_ip": self.app.config.get("ip_locked_ip", ""),
+            }
+
+        return self._run_on_ui(_apply)
 
     def _list_alarms_payload(self) -> dict:
         def _read():
@@ -176,6 +278,20 @@ class LocalWidgetApiServer:
         created = self._run_on_ui(_add)
         return {"ok": True, "alarm": created}
 
+    def _delete_alarm(self, body: dict) -> dict:
+        alarm_id = str(body.get("id") or "").strip()
+        if not alarm_id:
+            raise ValueError("شناسه آلارم (id) الزامی است")
+
+        def _del():
+            before = len(self.app.alarm_store.alarms)
+            self.app.alarm_store.delete_alarm(alarm_id)
+            after = len(self.app.alarm_store.alarms)
+            self.app._refresh_display()
+            return {"ok": True, "deleted": before != after, "id": alarm_id}
+
+        return self._run_on_ui(_del)
+
     def _start_timer(self, body: dict) -> dict:
         minutes = max(1, min(240, int(body.get("minutes", 25))))
         label = str(body.get("label") or "Deep Work").strip()
@@ -186,7 +302,23 @@ class LocalWidgetApiServer:
 
         return self._run_on_ui(_go)
 
-    def _handle_mcp(self, rpc: dict) -> dict:
+    def _stop_timer(self) -> dict:
+        def _stop():
+            self.app.stop_pomodoro_timer()
+            return {"ok": True, "stopped": True}
+
+        return self._run_on_ui(_stop)
+
+    @staticmethod
+    def _generate_ids() -> dict:
+        return {
+            "ok": True,
+            "uuid_v4": generate_guid(),
+            "ulid": generate_ulid(),
+            "nanoid": generate_nanoid(),
+        }
+
+    def _handle_mcp(self, rpc: dict) -> tuple[dict, str]:
         rpc_id = rpc.get("id")
         method = rpc.get("method", "")
         params = rpc.get("params") or {}
@@ -200,36 +332,52 @@ class LocalWidgetApiServer:
                     "capabilities": {"tools": {}},
                     "serverInfo": {"name": "persian-clock-widget", "version": "2.0.0"},
                 },
-            }
+            }, "initialize"
+        if method == "notifications/initialized":
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}, "notifications/initialized"
+        if method == "ping":
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {}}, "ping"
         if method == "tools/list":
-            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": MCP_TOOLS}}
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"tools": MCP_TOOLS}}, "tools/list"
         if method == "tools/call":
             t_name = params.get("name", "")
             args = params.get("arguments") or {}
             if t_name == "get_persian_datetime":
                 res = self._get_now_payload()
+            elif t_name == "convert_datetime":
+                res = self._convert_datetime(args)
             elif t_name == "get_ip_location_status":
                 res = self._get_ip_payload()
+            elif t_name == "toggle_ip_lock":
+                res = self._toggle_ip_lock(args)
             elif t_name == "list_alarms":
                 res = self._list_alarms_payload()
             elif t_name == "schedule_reminder":
                 res = self._schedule_alarm(args)
+            elif t_name == "delete_alarm":
+                res = self._delete_alarm(args)
             elif t_name == "start_pomodoro_timer":
                 res = self._start_timer(args)
+            elif t_name == "stop_pomodoro_timer":
+                res = self._stop_timer()
+            elif t_name == "generate_dev_ids":
+                res = self._generate_ids()
             else:
                 return {
                     "jsonrpc": "2.0",
                     "id": rpc_id,
                     "error": {"code": -32601, "message": f"Unknown tool: {t_name}"},
-                }
+                }, f"tools/call:{t_name}"
             return {
                 "jsonrpc": "2.0",
                 "id": rpc_id,
                 "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]},
-            }
-        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
+            }, f"tools/call:{t_name}"
+        return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}, method
 
-    def start(self) -> bool:
+    def start(self, port: int | None = None) -> bool:
+        if port is not None:
+            self.port = int(port)
         if self.running:
             return True
         api_ref = self
@@ -242,6 +390,9 @@ class LocalWidgetApiServer:
                 raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
                 self.send_response(code)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
                 self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
@@ -253,38 +404,72 @@ class LocalWidgetApiServer:
                 raw = self.rfile.read(ln).decode("utf-8", errors="replace")
                 return json.loads(raw)
 
+            def do_OPTIONS(self):
+                self._send_json(200, {"ok": True})
+
             def do_GET(self):
                 try:
                     if self.path == "/health":
-                        self._send_json(200, {"ok": True, "app": "PersianClockWidget", "version": "2.0.0"})
+                        uptime = int(time.time() - api_ref.started_at) if api_ref.started_at else 0
+                        self._send_json(200, {"ok": True, "app": "PersianClockWidget", "version": "2.0.0", "tools_count": len(MCP_TOOLS), "uptime_seconds": uptime})
+                        api_ref._add_log("GET", "/health", 200)
                     elif self.path == "/now":
                         self._send_json(200, api_ref._get_now_payload())
+                        api_ref._add_log("GET", "/now", 200)
                     elif self.path == "/ip":
                         self._send_json(200, api_ref._get_ip_payload())
+                        api_ref._add_log("GET", "/ip", 200)
                     elif self.path == "/alarms":
                         self._send_json(200, api_ref._list_alarms_payload())
+                        api_ref._add_log("GET", "/alarms", 200)
+                    elif self.path == "/dev/ids":
+                        self._send_json(200, api_ref._generate_ids())
+                        api_ref._add_log("GET", "/dev/ids", 200)
+                    elif self.path == "/logs":
+                        self._send_json(200, {"ok": True, "logs": api_ref.get_logs()})
                     else:
                         self._send_json(404, {"ok": False, "error": "Not found"})
+                        api_ref._add_log("GET", self.path, 404)
                 except Exception as exc:
                     self._send_json(500, {"ok": False, "error": str(exc)})
+                    api_ref._add_log("GET", self.path, 500, str(exc))
 
             def do_POST(self):
                 try:
                     body = self._read_json()
                     if self.path == "/alarms":
                         self._send_json(200, api_ref._schedule_alarm(body))
+                        api_ref._add_log("POST", "/alarms", 200, str(body.get("title", "")))
+                    elif self.path == "/alarms/delete":
+                        self._send_json(200, api_ref._delete_alarm(body))
+                        api_ref._add_log("POST", "/alarms/delete", 200, str(body.get("id", "")))
+                    elif self.path == "/convert":
+                        self._send_json(200, api_ref._convert_datetime(body))
+                        api_ref._add_log("POST", "/convert", 200, str(body.get("value", "")))
+                    elif self.path == "/ip/lock":
+                        self._send_json(200, api_ref._toggle_ip_lock(body))
+                        api_ref._add_log("POST", "/ip/lock", 200, str(body.get("enabled", "")))
                     elif self.path == "/timer":
                         self._send_json(200, api_ref._start_timer(body))
+                        api_ref._add_log("POST", "/timer", 200, f"{body.get('minutes', 25)}m")
+                    elif self.path == "/timer/stop":
+                        self._send_json(200, api_ref._stop_timer())
+                        api_ref._add_log("POST", "/timer/stop", 200)
                     elif self.path == "/mcp":
-                        self._send_json(200, api_ref._handle_mcp(body))
+                        resp, detail = api_ref._handle_mcp(body)
+                        self._send_json(200, resp)
+                        api_ref._add_log("POST", "/mcp", 200, detail)
                     else:
                         self._send_json(404, {"ok": False, "error": "Not found"})
+                        api_ref._add_log("POST", self.path, 404)
                 except Exception as exc:
                     self._send_json(500, {"ok": False, "error": str(exc)})
+                    api_ref._add_log("POST", self.path, 500, str(exc))
 
         try:
             self._server = _ReusableThreadingHTTPServer(("127.0.0.1", self.port), Handler)
             self.running = True
+            self.started_at = time.time()
             self.last_error = ""
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
             self._thread.start()
@@ -296,6 +481,7 @@ class LocalWidgetApiServer:
 
     def stop(self):
         self.running = False
+        self.started_at = None
         if self._server is not None:
             try:
                 self._server.shutdown()
