@@ -3676,7 +3676,12 @@ class PersianClockWidget:
             self.clock_replacer.keep_on_top()
         if getattr(self, "taskbar_clock", None) is not None:
             self.taskbar_clock.keep_on_top()
-        self.root.after(800, self._keep_z_order_loop)
+        interval = (
+            200
+            if (getattr(self, "clock_replacer", None) is not None or getattr(self, "taskbar_clock", None) is not None)
+            else 800
+        )
+        self.root.after(interval, self._keep_z_order_loop)
 
     def quit_app(self):
         try:

@@ -36,6 +36,7 @@ try:
     from src.alarm_manager import draw_outlined_canvas_text
     from src.win_utils import (
         apply_z_order_and_clickthrough,
+        get_all_monitors,
         get_resource_path,
         hide_from_taskbar,
     )
@@ -43,6 +44,7 @@ except ImportError:
     from alarm_manager import draw_outlined_canvas_text
     from win_utils import (
         apply_z_order_and_clickthrough,
+        get_all_monitors,
         get_resource_path,
         hide_from_taskbar,
     )
@@ -381,14 +383,36 @@ class _SingleTaskbarReplacer:
                 return False
             cls = ctypes.create_unicode_buffer(64)
             user32.GetClassNameW(fg, cls, 64)
-            if cls.value in ("Shell_TrayWnd", "Progman", "WorkerW", "TkTopLevel"):
+            if cls.value in (
+                "Shell_TrayWnd",
+                "Shell_SecondaryTrayWnd",
+                "Progman",
+                "WorkerW",
+                "TkTopLevel",
+                "Windows.UI.Core.CoreWindow",
+                "XamlExplorerHostIslandWindow",
+                "TopLevelWindowForOverflowXamlIsland",
+                "NotifyIconOverflowWindow",
+                "SearchPane",
+            ):
                 return False
             r = wintypes.RECT()
             user32.GetWindowRect(fg, ctypes.byref(r))
             geo = self._current_geo or get_taskbar_geometry()
             tb_l, tb_t, tb_r, tb_b, _ = geo
+            cx = (tb_l + tb_r) // 2
+            cy = (tb_t + tb_b) // 2
+            mon_rect = None
+            for m in get_all_monitors(self.win):
+                ml, mt, mr, mb = m["rect"]
+                if ml <= cx < mr and mt <= cy < mb:
+                    mon_rect = (ml, mt, mr, mb)
+                    break
+            if mon_rect is None:
+                return False
+            ml, mt, mr, mb = mon_rect
             # بررسی تمام‌صفحه بودن پنجره فعال روی همین مانیتور
-            return r.left <= tb_l and r.right >= tb_r and r.top <= tb_t and r.bottom >= tb_b
+            return r.left <= ml and r.right >= mr and r.top <= mt and r.bottom >= mb
         except Exception:
             return False
 
@@ -570,6 +594,10 @@ class _SingleTaskbarReplacer:
         if not self.win.winfo_viewable():
             self.win.deiconify()
         apply_z_order_and_clickthrough(self.win, "topmost", click_through=False)
+        try:
+            self.win.lift()
+        except Exception:
+            pass
 
     def _on_press(self, event):
         self._hide_tip()
