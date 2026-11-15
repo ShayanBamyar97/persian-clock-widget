@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
-const winExe = path.join(rootDir, "release", "windows", "PersianClockWidget.exe");
+const winExe = path.join(rootDir, "release", "windows", "v2", "PersianClockWidget-v2.0.0-win-x64.exe");
 const mainPy = path.join(rootDir, "main.py");
 
 function launchDetached(cmd, args, cwd) {
