@@ -966,15 +966,17 @@ class PersianClockWidget:
         if not self.config.get("locked", False):
             self._show_context_menu(event)
 
-    def _position_lock_window(self):
+    def _position_lock_window(self, wx: int | None = None, wy: int | None = None):
         if not self.lock_win or not self.widget_win:
             return
-        wx = self.widget_win.winfo_x()
-        wy = self.widget_win.winfo_y()
+        if wx is None or wy is None:
+            self.widget_win.update_idletasks()
+            wx = self.widget_win.winfo_x()
+            wy = self.widget_win.winfo_y()
         sz = self.LOCK_BTN_SIZE
-        lx = wx + self.LOCK_OFFSET_X
-        ly = wy + self.LOCK_OFFSET_Y
-        self.lock_win.geometry(f"{sz}x{sz}+{int(lx)}+{int(ly)}")
+        lx = int(wx) + self.LOCK_OFFSET_X
+        ly = int(wy) + self.LOCK_OFFSET_Y
+        self.lock_win.geometry(f"{sz}x{sz}+{lx}+{ly}")
 
     def _get_dev_copy_data(self) -> dict:
         """محاسبه لحظه‌ای ۱۰ فرمت پرکاربرد تاریخ و ساعت برای API + مقادیر GUID"""
@@ -2380,10 +2382,10 @@ class PersianClockWidget:
     def _on_drag_motion(self, event):
         if not self._is_dragging or self.config.get("locked", False):
             return
-        new_x = event.x_root - self._drag_start_x
-        new_y = event.y_root - self._drag_start_y
-        self.widget_win.geometry(f"{self.compact_w}x{self.compact_h}+{int(new_x)}+{int(new_y)}")
-        self._position_lock_window()
+        new_x = int(event.x_root - self._drag_start_x)
+        new_y = int(event.y_root - self._drag_start_y)
+        self.widget_win.geometry(f"{self.compact_w}x{self.compact_h}+{new_x}+{new_y}")
+        self._position_lock_window(new_x, new_y)
         if self.config.get("calendar_expanded", False):
             self._position_calendar_window()
 
@@ -2391,11 +2393,15 @@ class PersianClockWidget:
         if not self._is_dragging:
             return
         self._is_dragging = False
-        self.config["x"] = self.widget_win.winfo_x()
-        self.config["y"] = self.widget_win.winfo_y()
-        self._unlocked_x = self.config["x"]
-        self._unlocked_y = self.config["y"]
+        self.widget_win.update_idletasks()
+        wx = self.widget_win.winfo_x()
+        wy = self.widget_win.winfo_y()
+        self.config["x"] = wx
+        self.config["y"] = wy
+        self._unlocked_x = wx
+        self._unlocked_y = wy
         self._save_config()
+        self._position_lock_window(wx, wy)
         z_mode = self.config.get("z_mode", "topmost")
         is_locked = bool(self.config.get("locked", False))
         apply_z_order_and_clickthrough(self.widget_win, z_mode, click_through=is_locked)
@@ -3683,11 +3689,11 @@ class PersianClockWidget:
 
             if size_changed or (cur_cx != target_x) or (cur_cy != target_y):
                 self.widget_win.geometry(f"{target_w}x{target_h}+{int(target_x)}+{int(target_y)}")
-                self._position_lock_window()
                 if not self.config.get("transparent_bg", False):
                     apply_rounded_corners(self.widget_win, target_w, target_h, radius=10 if is_locked else 16, enabled=True)
                 if self.config.get("calendar_expanded"):
                     self._position_calendar_window()
+            self._position_lock_window(int(target_x), int(target_y))
 
         if hasattr(self, "tray") and self.tray:
             self.tray.update_tooltip(self._format_tray_tooltip(info))
