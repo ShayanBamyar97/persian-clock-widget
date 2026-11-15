@@ -1,6 +1,6 @@
 {
   "name": "persian-clock-widget",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "Tehran Clock, Jalali Calendar, Personal Birthdays & Alarms Desktop Widget for Windows, Linux and macOS",
   "bin": {
     "persian-clock-widget": "bin/persian-clock.js",
@@ -15,7 +15,7 @@
     "README.md",
     "README-LINUX.md",
     "LICENSE",
-    "release/windows/PersianClockWidget-v1.0.3-win-x64.exe"
+    "release/windows/v2/PersianClockWidget-v2.0.0-win-x64.exe"
   ],
   "keywords": [
     "persian",

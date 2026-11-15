@@ -6,10 +6,10 @@
 ### **Persian Clock, Jalali Calendar & Smart Alarm Desktop Widget**
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6?style=for-the-badge)](#)
-[![Version](https://img.shields.io/badge/Version-1.0.3-2563EB?style=for-the-badge)](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3)
+[![Version](https://img.shields.io/badge/Version-2.0.0-7C3AED?style=for-the-badge)](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)
 [![npm](https://img.shields.io/npm/v/persian-clock-widget?style=for-the-badge&logo=npm&color=CB3837)](https://www.npmjs.com/package/persian-clock-widget)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](#)
-[![Offline](https://img.shields.io/badge/Mode-100%25%20Offline-10B981?style=for-the-badge)](#)
+[![MCP](https://img.shields.io/badge/AI%20Ready-MCP%20%26%20REST%20API-10B981?style=for-the-badge)](#)
 [![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 [![Author](https://img.shields.io/badge/Author-%C2%AE%20Shayan%20Bamyar-38BDF8?style=for-the-badge)](#)
 
@@ -33,6 +33,7 @@
   - [۴. سیستم رویداد، یادآور و آلارم (⏰) با زنگوله متحرک و صداهای MP3](#۴-سیستم-رویداد-یادآور-و-آلارم--با-زنگوله-متحرک-و-صداهای-mp3)
   - [۵. ابزار کپی زمان برای برنامه‌نویسان (📋)](#۵-ابزار-کپی-زمان-برای-برنامهنویسان-)
   - [۶. پنجره تنظیمات ظاهری، رنگ، سایز و فونت (⚙)](#۶-پنجره-تنظیمات-ظاهری-رنگ-سایز-و-فونت-)
+- [🆕 امکانات نسخه دوم (v2.0.0 — Dev & AI Suite)](#-امکانات-نسخه-دوم-v200--dev--ai-suite)
 - [اجرا از طریق سورس کد پایتون](#-اجرا-از-طریق-سورس-کد-پایتون)
 - [نحوه ساخت مجدد فایل اجرایی (`.exe`)](#-نحوه-ساخت-مجدد-فایل-اجرایی-exe)
 - [طراح و توسعه‌دهنده (حق ناشر)](#-طراح-و-توسعهدهنده-حق-ناشر)
@@ -85,6 +86,8 @@ persian-clock-widget/
 │   └── custom_occasions.json      # فایل افزودن مناسبت‌های شخصی آفلاین
 ├── release/                       # 📦 خروجی‌های نهایی ویندوز و لینوکس
 │   ├── windows/                   # نسخه مستقل ویندوز (Portable EXE & ZIP)
+│   │   ├── v1/                    # نسخه ۱ (کلاسیک + پایش IP و تاریخچه ۳ روزه)
+│   │   ├── v2/                    # نسخه ۲ (همه امکانات v1 + ابزارهای Dev & AI)
 │   │   ├── PersianClockWidget.exe
 │   │   └── PersianClockWidget.zip
 │   └── linux/                     # بسته‌های نصبی و پرتابل لینوکس
@@ -98,7 +101,12 @@ persian-clock-widget/
 │   ├── __init__.py
 │   ├── alarm_manager.py           # مدیریت آلارم‌ها، پخش صدا و پاپ‌آپ زنگوله متحرک
 │   ├── calendar_data.py           # مبدل تقویم شمسی/قمری/میلادی و دیتابیس مناسبت‌ها
+│   ├── dev_ai_hub.py              # پنجره ۵ تب ابزارهای هوشمند برنامه‌نویسی و AI (نسخه ۲)
+│   ├── dev_tools.py               # دستیار Cron، مبدل Timestamp/JWT، ULID/NanoID و جلسات
 │   ├── icon_generator.py          # تولیدکننده آیکون برداری ساعت و تقویم فارسی
+│   ├── ip_monitor.py              # پایش زنده IP/شهر، قفل روی شهر و تاریخچه ۳ روزه
+│   ├── local_api.py               # سرور محلی HTTP REST و MCP JSON-RPC برای ابزارهای AI
+│   ├── scheduler_actions.py       # اجرای خودکار اکشن سر ساعت (URL / Webhook / Command)
 │   ├── widget.py                  # رابط گرافیکی اصلی ویجت، تقویم ماهانه و پنجره تنظیمات
 │   ├── taskbar_clock.py           # ساعت روی تسک‌بار و آیکون برنامه در تسک‌بار
 │   └── win_utils.py               # توابع Win32 API (Z-Index، Click-Through، فونت، صدا و Tray)
@@ -117,21 +125,21 @@ persian-clock-widget/
 
 ### ⚡ جدول دانلود سریع بر اساس سیستم‌عامل و معماری
 
-| سیستم‌عامل | معماری / توزیع | فایل پیشنهادی (`v1.0.3` — کلاسیک) | نسخه دوم (`v2.0.0` — Dev & AI) |
+| سیستم‌عامل | معماری / توزیع | فایل پیشنهادی (`v2.0.0`) | نسخه کلاسیک (`v1.0.3`) |
 | :--- | :--- | :--- | :--- |
-| 🪟 **Windows** | **64-bit (`win-x64`)** | [`PersianClockWidget-v1.0.3-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.exe) / [`.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.zip) | [`PersianClockWidget-v2.0.0-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.exe) / [`.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.zip) |
-| 🪟 **Windows** | **32-bit (`win-x86`)** | `npm install -g persian-clock-widget@1.0.3` | نصب با پایتون ۳۲ بیتی از سورس |
-| 🐧 **Linux** | **Debian / Ubuntu / Mint** | [`PersianClockWidget-v1.0.3-linux-all.deb`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-all.deb) | [`PersianClockWidget-v2.0.0-linux-all.deb`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-all.deb) |
-| 🐧 **Linux** | **همه توزیع‌ها (`.sh` / `.tar.gz`)** | [`linux-installer.sh`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-installer.sh) / [`linux-portable.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-portable.tar.gz) | [`linux-installer.sh`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-installer.sh) / [`linux-portable.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-portable.tar.gz) |
-| 🍎 **macOS** | **Apple Silicon & Intel** | [`PersianClockWidget-v1.0.3-macos-universal.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-macos-universal.tar.gz) | [`PersianClockWidget-v2.0.0-macos-universal.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-macos-universal.tar.gz) |
+| 🪟 **Windows** | **64-bit (`win-x64`)** | [`PersianClockWidget-v2.0.0-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.exe) / [`.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.zip) | [`PersianClockWidget-v1.0.3-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.exe) / [`.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.zip) |
+| 🪟 **Windows** | **32-bit (`win-x86`)** | نصب با `npm` یا سورس پایتون ۳۲ بیتی | `npm install -g persian-clock-widget@1.0.3` |
+| 🐧 **Linux** | **Debian / Ubuntu / Mint** | [`PersianClockWidget-v2.0.0-linux-all.deb`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-all.deb) | [`PersianClockWidget-v1.0.3-linux-all.deb`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-all.deb) |
+| 🐧 **Linux** | **همه توزیع‌ها (`.sh` / `.tar.gz`)** | [`linux-installer.sh`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-installer.sh) / [`linux-portable.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-portable.tar.gz) | [`linux-installer.sh`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-installer.sh) / [`linux-portable.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-portable.tar.gz) |
+| 🍎 **macOS** | **Apple Silicon & Intel** | [`PersianClockWidget-v2.0.0-macos-universal.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-macos-universal.tar.gz) | [`PersianClockWidget-v1.0.3-macos-universal.tar.gz`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-macos-universal.tar.gz) |
 
 ---
 
 ### 🪟 ۱. ویندوز (Windows 10 / 11 — 64-bit و 32-bit)
 
 #### روش الف — اجرای مستقیم فایل `.exe` (پیشنهادی برای `win-x64`)
-- دانلود فایل اجرایی پرتابل: **[`PersianClockWidget-v1.0.3-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.exe)**
-- دانلود فایل فشرده: **[`PersianClockWidget-v1.0.3-win-x64.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-win-x64.zip)**
+- دانلود فایل اجرایی پرتابل: **[`PersianClockWidget-v2.0.0-win-x64.exe`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.exe)**
+- دانلود فایل فشرده: **[`PersianClockWidget-v2.0.0-win-x64.zip`](https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-win-x64.zip)**
 - بدون نیاز به نصب پایتون یا فونت؛ تمام منابع در داخل فایل `.exe` قرار دارند.
 
 #### روش ب — نصب نسخه کلاسیک (`v1.0.3`) از طریق `npm` (مناسب `win-x64` و `win-x86`)
@@ -182,8 +190,8 @@ sudo pacman -S python tk mpv
 <div dir="ltr">
 
 ```bash
-wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-all.deb
-sudo apt install ./PersianClockWidget-v1.0.3-linux-all.deb
+wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-all.deb
+sudo apt install ./PersianClockWidget-v2.0.0-linux-all.deb
 persian-clock-widget
 ```
 
@@ -194,9 +202,9 @@ persian-clock-widget
 <div dir="ltr">
 
 ```bash
-wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-installer.sh
-chmod +x PersianClockWidget-v1.0.3-linux-installer.sh
-bash PersianClockWidget-v1.0.3-linux-installer.sh
+wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-installer.sh
+chmod +x PersianClockWidget-v2.0.0-linux-installer.sh
+bash PersianClockWidget-v2.0.0-linux-installer.sh
 ```
 
 </div>
@@ -206,8 +214,8 @@ bash PersianClockWidget-v1.0.3-linux-installer.sh
 <div dir="ltr">
 
 ```bash
-wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-linux-portable.tar.gz
-tar -xzf PersianClockWidget-v1.0.3-linux-portable.tar.gz
+wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-portable.tar.gz
+tar -xzf PersianClockWidget-v2.0.0-linux-portable.tar.gz
 cd persian-clock-widget
 ./scripts/run_linux.sh
 ```
@@ -243,8 +251,8 @@ brew install python python-tk
 <div dir="ltr">
 
 ```bash
-curl -LO https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v1.0.3/PersianClockWidget-v1.0.3-macos-universal.tar.gz
-tar -xzf PersianClockWidget-v1.0.3-macos-universal.tar.gz
+curl -LO https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-macos-universal.tar.gz
+tar -xzf PersianClockWidget-v2.0.0-macos-universal.tar.gz
 cd persian-clock-widget
 ./PersianClockWidget.command
 ```
@@ -262,7 +270,7 @@ persian-clock
 
 </div>
 
-> **نکته:** قابلیت «جایگزینی ساعت در تسک‌بار» مخصوص سیستم‌عامل ویندوز است؛ سایر امکانات (ویجت دسکتاپ، تقویم شمسی، آلارم‌ها، پایش و قفل IP و ابزارهای کپی API) در لینوکس و macOS هم کار می‌کنند.
+> **نکته:** قابلیت «جایگزینی ساعت در تسک‌بار» مخصوص سیستم‌عامل ویندوز است؛ سایر امکانات (ویجت دسکتاپ، تقویم شمسی، آلارم‌ها، پایش و قفل IP، ابزارهای برنامه‌نویسان و سرویس هوش مصنوعی) در لینوکس و macOS هم کار می‌کنند.
 
 ---
 
@@ -270,8 +278,8 @@ persian-clock
 
 | نسخه | شاخه (`Branch`) | روش نصب / دانلود | توضیحات |
 | :--- | :--- | :--- | :--- |
-| **[v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3)** | `main` | `npm i -g persian-clock-widget@1.0.3` / [GitHub Release v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3) | نسخه کلاسیک سبک + مانیتورینگ و قفل شهر/IP، تاریخچه ۳ روزه و اصلاح کامل تسک‌بار |
-| **[v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)** | [`feat/v2-dev-ai-suite`](https://github.com/ShayanBamyar97/persian-clock-widget/tree/feat/v2-dev-ai-suite) | [GitHub Release v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0) | **Dev & AI Suite**: پومودورو، Cron/Timer، تولید داده تست، REST API و MCP سرور برای هوش مصنوعی |
+| **[v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)** | `feat/v2-dev-ai-suite` | [GitHub Release v2.0.0](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0) | **Dev & AI Suite**: پومودورو، Cron/Timer، تولید داده تست، REST API و MCP سرور برای هوش مصنوعی |
+| **[v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3)** | [`main`](https://github.com/ShayanBamyar97/persian-clock-widget/tree/main) | `npm i -g persian-clock-widget@1.0.3` / [GitHub Release v1.0.3](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v1.0.3) | نسخه کلاسیک سبک + مانیتورینگ و قفل شهر/IP، تاریخچه ۳ روزه و اصلاح کامل تسک‌بار |
 
 ---
 
@@ -368,6 +376,41 @@ persian-clock
     - **دکمه‌های بازنشانی و انتخاب رنگ**: دکمه بازنشانی موقعیت به گوشه مانیتور و انتخابگر رنگ پس‌زمینه برای هماهنگی با هر رنگ و پوسته‌ای از ویندوز.
   - **🕒 ساعت و تاریخ شمسی شناور روی تسک‌بار (حالت شفاف)**: ساعت تهران و تاریخ شمسی را با پس‌زمینه شفاف در کنار ساعت ویندوز نمایش می‌دهد.
   - **📌 آیکون برنامه در تسک‌بار**: یک دکمه مجزا در تسک‌بار اضافه می‌کند که با کلیک، تقویم ماهانه باز و بسته می‌شود.
+
+---
+
+## 🆕 امکانات نسخه دوم (v2.0.0 — Dev & AI Suite)
+
+در شاخه `feat/v2-dev-ai-suite` و پوشه `release/windows/v2/`، علاوه بر حفظ تمام امکانات نسخه ۱ (شامل چیدمان فشرده دو ردیفه، ساعت تسک‌بار با فونت بومی ویندوز در مانیتور اول و دوم، تک‌نمونه‌ای بودن برنامه، و پایش IP و تاریخچه ۳ روزه تغییر شهر/IP)، ۵ قابلیت جدید برای برنامه‌نویسان و اتصال به ابزارهای هوش مصنوعی اضافه شده است (با کلیک روی دکمه **`⚡ AI`** در ویجت باز می‌شود):
+
+1. **🤖 اتصال مستقیم به ابزارهای AI (Local HTTP REST + MCP Server)**:
+   - اجرای سرور محلی امن روی `http://127.0.0.1:17845` (قابل روشن/خاموش کردن).
+   - پشتیبانی از پروتکل **MCP (JSON-RPC 2.0)** در مسیر `POST /mcp` با ۵ ابزار آماده برای Claude، Antigravity، Cursor و Codex:
+     - `get_persian_datetime` (ساعت و تاریخ شمسی، UTC، تعطیلی و مناسبت)
+     - `get_ip_location_status` (IP، شهر، قفل لوکیشن و تاریخچه ۳ روزه)
+     - `list_alarms` (لیست یادآورها و رویدادها)
+     - `schedule_reminder` (ثبت یادآور با `in_minutes` یا تاریخ شمسی + اکشن اختیاری)
+     - `start_pomodoro_timer` (شروع تایمر پومودورو روی ویجت)
+   - همراه با اندپوینت‌های REST (`GET /health`، `GET /now`، `GET /ip`، `GET /alarms`، `POST /alarms`، `POST /timer`) و دکمه **کپی یک‌کلیکی کانفیگ MCP**.
+
+2. **⚙ دستیار Cron و پیش‌بینی اجرا (Cron Expression Builder)**:
+   - تحلیل عبارات ۵ بخشی Cron و نمایش توضیح خوانای فارسی.
+   - محاسبه ۵ زمان اجرای بعدی هم به وقت **تهران (شمسی)** و هم **UTC** به همراه قالب‌های آماده.
+
+3. **🕒 مبدل Timestamp / ISO / شمسی + دیکدر آفلاین JWT + تولید ID**:
+   - تبدیل دوطرفه Unix Timestamp (ثانیه و میلی‌ثانیه)، ISO-8601 و تاریخ شمسی.
+   - بررسی **کاملاً آفلاین** توکن `JWT` و نمایش زمان صدور (`iat`) و انقضا (`exp`) به تاریخ شمسی و زمان باقی‌مانده.
+   - تولید و کپی فوری `GUID`، `ULID` و `NanoID`.
+
+4. **🌍 برنامه‌ریز ساعت جلسات تیمی (Meeting Time Planner)**:
+   - تبدیل هم‌زمان ساعت تهران به `UTC`، لندن، برلین/آمستردام، دبی، نیویورک و تورنتو + کپی متن آماده دعوت‌نامه جلسه.
+
+5. **⏱ تایمر پومودورو (Deep Work) + زمان‌بند اکشن سر ساعت**:
+   - تایمر ۲۵/۵/۴۵ دقیقه‌ای با شمارنده معکوس زنده روی ویجت و آلارم پایان زمان.
+   - امکان اتصال اکشن‌های خودکار **باز کردن لینک (`url`)**، **ارسال `POST Webhook`** یا **اجرای دستور سیستم (`command`)** به رویدادها و آلارم‌ها.
+
+6. **🌐 پایش زنده IP، قفل روی شهر و تاریخچه ۳ روزه**:
+   - نمایش شهر، کشور و IP عمومی روی ویجت، امکان **قفل روی شهر فعلی** یا **IP فعلی** با آلارم فوری صوتی/تصویری در صورت تغییر لوکیشن، و نگهداری تاریخچه تغییرات ۳ روز گذشته.
 
 ---
 

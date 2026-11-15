@@ -161,6 +161,46 @@ class AlarmStore:
         self.alarms.append(alarm_data)
         self.save()
 
+    def add_alarm(
+        self,
+        title: str,
+        hour: int,
+        minute: int,
+        repeat: str = "once",
+        dates: list[str] | None = None,
+        play_sound: bool = True,
+        message: str = "",
+        action_type: str = "none",
+        action_target: str = "",
+    ) -> dict:
+        """افزودن سریع آلارم یا رویداد زمان‌بندی‌شده (با پشتیبانی از اکشن خودکار)"""
+        d_list = list(dates or [])
+        jy, jm, jd = 0, 0, 0
+        if d_list:
+            parts = d_list[0].split("/")
+            if len(parts) == 3:
+                jy, jm, jd = int(parts[0]), int(parts[1]), int(parts[2])
+        alarm_data = {
+            "id": str(uuid.uuid4())[:8],
+            "title": title,
+            "message": message,
+            "hour": int(hour),
+            "minute": int(minute),
+            "repeat_mode": repeat,
+            "dates": d_list,
+            "jy": jy,
+            "jm": jm,
+            "jd": jd,
+            "enabled": True,
+            "play_sound": bool(play_sound),
+            "show_popup": True,
+            "sound_file": DEFAULT_ALARM_SOUND,
+            "action_type": action_type or "none",
+            "action_target": action_target or "",
+        }
+        self.add_or_update(alarm_data)
+        return alarm_data
+
     def delete(self, alarm_id: str):
         self.alarms = [a for a in self.alarms if a.get("id") != alarm_id]
         self.snoozed = [s for s in self.snoozed if s.get("alarm", {}).get("id") != alarm_id]

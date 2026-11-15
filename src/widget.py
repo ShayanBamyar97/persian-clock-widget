@@ -51,6 +51,9 @@ try:
         set_windows11_tray_clock_hidden,
     )
     from src.ip_monitor import IpHistoryStore, check_ip_lock_mismatch, fetch_ip_geolocation
+    from src.dev_ai_hub import DevAiHubWindow
+    from src.local_api import DEFAULT_API_PORT, LocalWidgetApiServer
+    from src.scheduler_actions import execute_scheduled_action
 except ImportError:
     from alarm_manager import (
         AlarmManagerWindow,
@@ -88,6 +91,9 @@ except ImportError:
         set_windows11_tray_clock_hidden,
     )
     from ip_monitor import IpHistoryStore, check_ip_lock_mismatch, fetch_ip_geolocation
+    from dev_ai_hub import DevAiHubWindow
+    from local_api import DEFAULT_API_PORT, LocalWidgetApiServer
+    from scheduler_actions import execute_scheduled_action
 
 DATA_DIR = get_data_dir()
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -143,6 +149,9 @@ DEFAULT_CONFIG = {
     "ip_locked_ip": "",
     "ip_locked_city": "",
     "ip_locked_country": "",
+    # سرور محلی AI (HTTP REST + MCP)
+    "ai_api_enabled": True,
+    "ai_api_port": DEFAULT_API_PORT,
 }
 
 
@@ -357,6 +366,10 @@ class PersianClockWidget:
         self.alarm_win: AlarmManagerWindow | None = None
         self.custom_occ_win: tk.Toplevel | None = None
         self.ip_win: tk.Toplevel | None = None
+        self.dev_ai_hub: DevAiHubWindow | None = None
+
+        self._pomodoro_end_ts: float | None = None
+        self._pomodoro_label: str = ""
 
         self._ip_info: dict = {}
         self._ip_fetch_inflight = False
@@ -392,6 +405,13 @@ class PersianClockWidget:
         self._update_clock_loop()
         self._keep_z_order_loop()
         self.root.after(1200, self._ip_monitor_loop)
+
+        self.local_api = LocalWidgetApiServer(
+            self,
+            port=int(self.config.get("ai_api_port", DEFAULT_API_PORT)),
+        )
+        if self.config.get("ai_api_enabled", True):
+            self.local_api.start()
 
     # ------------------------------------------------------------------
     # نمایش در تسک‌بار (ساعت روی تسک‌بار + دکمه برنامه در تسک‌بار)
@@ -776,6 +796,28 @@ class PersianClockWidget:
             "کلیک چپ: رندر و کپی فوری GUID جدید | کلیک راست: منوی کامل",
             base_fg_fn=lambda: "#C4B5FD",
             hover_bg="#7C3AED",
+            hover_fg="#FFFFFF",
+        )
+        _add_tb_sep(self._dock_row2)
+
+        # ۵.۵. دکمه ابزارهای هوشمند برنامه‌نویسی و AI (v2.0)
+        self.dev_ai_btn = tk.Label(
+            self._dock_row2,
+            text="⚡ AI",
+            font=("Consolas", 8, "bold"),
+            fg="#38BDF8",
+            bg="#161E2E",
+            padx=5,
+            pady=2,
+            cursor="hand2",
+        )
+        self.dev_ai_btn.pack(side="left", expand=True, fill="x", padx=(1, 1))
+        self.dev_ai_btn.bind("<Button-1>", lambda e: (self.open_dev_ai_hub(), "break")[1])
+        self._attach_hover(
+            self.dev_ai_btn,
+            "ابزارهای v2: دستیار Cron، مبدل Timestamp/JWT، جلسات، پومودورو و سرور AI/MCP",
+            base_fg_fn=lambda: "#38BDF8",
+            hover_bg="#0284C7",
             hover_fg="#FFFFFF",
         )
         _add_tb_sep(self._dock_row2)
@@ -2340,6 +2382,8 @@ class PersianClockWidget:
         )
         self.copy_time_btn.configure(bg=btn_bg, fg="#A7F3D0", font=(font_fa, 8, "bold"))
         self.guid_btn.configure(bg=btn_bg, fg="#C4B5FD")
+        if hasattr(self, "dev_ai_btn"):
+            self.dev_ai_btn.configure(bg=btn_bg, fg="#38BDF8")
         self.alarm_btn.configure(bg=btn_bg, fg="#FBBF24", font=(font_fa, 8, "bold"))
         if hasattr(self, "occ_btn"):
             self.occ_btn.configure(bg=btn_bg, fg="#F472B6", font=(font_fa, 8, "bold"))
@@ -2542,6 +2586,10 @@ class PersianClockWidget:
         self.menu.add_command(
             label="🌐 وضعیت IP و قفل شهر/لوکیشن...",
             command=self.open_ip_monitor_window,
+        )
+        self.menu.add_command(
+            label="⚡ ابزارهای هوشمند (Cron / JWT / AI / پومودورو)...",
+            command=self.open_dev_ai_hub,
         )
 
         self.menu.add_command(
@@ -3489,6 +3537,10 @@ class PersianClockWidget:
                 self._render_calendar_month()
 
         for alarm in due_alarms:
+            execute_scheduled_action(
+                alarm,
+                on_result=lambda _ok, msg: self.root.after(0, lambda m=msg: self._show_toast(m)),
+            )
             if alarm.get("show_popup", True) or alarm.get("play_sound", True):
                 AnimatedBellPopup(
                     root=self.root,
@@ -3570,6 +3622,28 @@ class PersianClockWidget:
             info["jy"], info["jm"], info["jd"], info["persian_week_idx"]
         )
         occ_parts = []
+        if self._pomodoro_end_ts is not None:
+            rem = int(self._pomodoro_end_ts - time.time())
+            if rem <= 0:
+                lbl_p = self._pomodoro_label or "Deep Work"
+                self._pomodoro_end_ts = None
+                self._pomodoro_label = ""
+                try:
+                    AnimatedBellPopup(
+                        root=self.root,
+                        alarm={
+                            "id": "pomodoro-done",
+                            "title": f"⏱ پایان تایمر: {lbl_p}",
+                            "message": "زمان تعیین‌شده به پایان رسید!",
+                            "play_sound": True,
+                            "sound_file": self.config.get("default_alarm_sound", "alarm.mp3"),
+                        },
+                        font_family=self.config.get("font_family", "Vazir"),
+                    )
+                except Exception:
+                    pass
+            else:
+                occ_parts.append(f"⏱ {rem // 60:02d}:{rem % 60:02d} {self._pomodoro_label}")
         if info["has_occasion"] and info["occasion"]:
             occ_parts.append(info["occasion"])
         for a in today_alarms:
@@ -4264,6 +4338,25 @@ class PersianClockWidget:
         self._refresh_ip_window_labels()
         self._trigger_ip_check_async()
 
+    def open_dev_ai_hub(self):
+        if self.dev_ai_hub and self.dev_ai_hub.win and self.dev_ai_hub.win.winfo_exists():
+            self.dev_ai_hub.focus()
+            return
+        self.dev_ai_hub = DevAiHubWindow(self)
+
+    def start_pomodoro_timer(self, minutes: int = 25, label: str = "Deep Work"):
+        mins = max(1, min(240, int(minutes)))
+        self._pomodoro_end_ts = time.time() + mins * 60
+        self._pomodoro_label = label or "Deep Work"
+        self._refresh_display()
+        self._show_toast(f"⏱ تایمر {mins} دقیقه‌ای شروع شد")
+
+    def stop_pomodoro_timer(self):
+        self._pomodoro_end_ts = None
+        self._pomodoro_label = ""
+        self._refresh_display()
+        self._show_toast("⏱ تایمر متوقف شد")
+
     def _keep_z_order_loop(self):
         if not self._is_dragging and not getattr(self, "_is_minimized", False) and self.widget_win and self.widget_win.winfo_viewable():
             z_mode = self.config.get("z_mode", "topmost")
@@ -4291,6 +4384,11 @@ class PersianClockWidget:
         self.root.after(interval, self._keep_z_order_loop)
 
     def quit_app(self):
+        try:
+            if getattr(self, "local_api", None) is not None:
+                self.local_api.stop()
+        except Exception:
+            pass
         try:
             if getattr(self, "clock_replacer", None) is not None:
                 self.clock_replacer.destroy()
