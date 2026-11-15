@@ -1,5 +1,3 @@
 **/__pycache__/
-**/*.pyc
-build/
-data/
-*.spec
+*.pyc
+release/windows/data/
