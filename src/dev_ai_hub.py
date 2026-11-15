@@ -74,7 +74,7 @@ class DevAiHubWindow:
         win.configure(bg="#0B1120")
         win.attributes("-topmost", True)
 
-        w, h = 640, 620
+        w, h = 680, 640
         sx = (win.winfo_screenwidth() - w) // 2
         sy = (win.winfo_screenheight() - h) // 2
         win.geometry(f"{w}x{h}+{sx}+{sy}")
@@ -124,45 +124,70 @@ class DevAiHubWindow:
             dw.bind("<ButtonPress-1>", _d_start)
             dw.bind("<B1-Motion>", _d_move)
 
-        style = ttk.Style(win)
-        try:
-            style.theme_use("clam")
-        except Exception:
-            pass
-        style.configure("DevHub.TNotebook", background="#0B1120", borderwidth=0)
-        style.configure(
-            "DevHub.TNotebook.Tab",
-            background="#1E293B",
-            foreground="#CBD5E1",
-            padding=(8, 5),
-            font=(font_fa, 8, "bold"),
-        )
-        style.map(
-            "DevHub.TNotebook.Tab",
-            background=[("selected", "#0284C7")],
-            foreground=[("selected", "#FFFFFF")],
-        )
+        # نوار تب سفارشی راست‌به‌چپ (بدون باگ بریدگی متن در ttk.Notebook ویندوز)
+        tab_bar = tk.Frame(outer, bg="#0B1120")
+        tab_bar.pack(fill="x", pady=(0, 8))
 
-        nb = ttk.Notebook(outer, style="DevHub.TNotebook")
-        nb.pack(fill="both", expand=True)
+        content_host = tk.Frame(outer, bg="#0F172A", highlightbackground="#1E293B", highlightthickness=1)
+        content_host.pack(fill="both", expand=True)
 
-        t1 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
-        t2 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
-        t3 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
-        t4 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
-        t5 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+        t1 = tk.Frame(content_host, bg="#0F172A", padx=12, pady=12)
+        t2 = tk.Frame(content_host, bg="#0F172A", padx=12, pady=12)
+        t3 = tk.Frame(content_host, bg="#0F172A", padx=12, pady=12)
+        t4 = tk.Frame(content_host, bg="#0F172A", padx=12, pady=12)
+        t5 = tk.Frame(content_host, bg="#0F172A", padx=12, pady=12)
 
-        nb.add(t1, text="🕒 Timestamp & JWT")
-        nb.add(t2, text="⚙ دستیار Cron")
-        nb.add(t3, text="🌍 جلسات")
-        nb.add(t4, text="⏱ پومودورو و اکشن")
-        nb.add(t5, text="🤖 اتصال به AI")
+        tabs_meta = [
+            ("t1", "زمان و JWT", t1),
+            ("t2", "دستیار Cron", t2),
+            ("t3", "جلسات جهانی", t3),
+            ("t4", "پومودورو و اکشن", t4),
+            ("t5", "سرور AI و MCP", t5),
+        ]
+        tab_buttons: dict[str, tuple[tk.Button, tk.Frame]] = {}
+
+        def _select_tab(key: str):
+            for k, (btn, ind) in tab_buttons.items():
+                is_sel = k == key
+                btn.configure(
+                    bg="#172554" if is_sel else "#1E293B",
+                    fg="#FFFFFF" if is_sel else "#CBD5E1",
+                )
+                ind.configure(bg="#38BDF8" if is_sel else "#1E293B")
+            for k, _, frame in tabs_meta:
+                if k == key:
+                    frame.pack(fill="both", expand=True)
+                else:
+                    frame.pack_forget()
+
+        for key, label, _ in tabs_meta:
+            cell = tk.Frame(tab_bar, bg="#0B1120")
+            cell.pack(side="right", expand=True, fill="x", padx=2)
+            b = tk.Button(
+                cell,
+                text=label,
+                font=(font_fa, 8, "bold"),
+                bg="#1E293B",
+                fg="#CBD5E1",
+                activebackground="#1D4ED8",
+                activeforeground="#FFFFFF",
+                relief="flat",
+                padx=8,
+                pady=6,
+                cursor="hand2",
+                command=lambda k=key: _select_tab(k),
+            )
+            b.pack(fill="x")
+            ind = tk.Frame(cell, height=2, bg="#1E293B")
+            ind.pack(fill="x")
+            tab_buttons[key] = (b, ind)
 
         self._build_tab_converter_jwt(t1, font_fa)
         self._build_tab_cron(t2, font_fa)
         self._build_tab_meetings(t3, font_fa)
         self._build_tab_pomodoro_actions(t4, font_fa)
         self._build_tab_ai_mcp(t5, font_fa)
+        _select_tab("t1")
 
     # ── تب ۱: مبدل Timestamp / ISO / شمسی + دیکدر آفلاین JWT + IDها ──
     def _build_tab_converter_jwt(self, parent: tk.Frame, font_fa: str):
