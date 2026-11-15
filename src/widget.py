@@ -4084,9 +4084,14 @@ class PersianClockWidget:
                     ip_s = item.get("ip") or "—"
                     isp = (item.get("isp") or "").strip()
                     isp_part = f"  •  {isp}" if isp else ""
-                    hist_box.insert(tk.END, f"🌐 {ip_s}", "ip")
-                    hist_box.insert(tk.END, f"   —   {city}, {ctry}\n", "loc")
-                    hist_box.insert(tk.END, f"   🕒 {dt}{isp_part}\n", "meta")
+                    row_tag = f"entry_{idx}"
+                    line_text = f"{dt} | {city}, {ctry} | {ip_s}{(' | ' + isp) if isp else ''}"
+                    start_idx = hist_box.index(tk.END)
+                    hist_box.insert(tk.END, f"🌐 {ip_s}", ("ip", row_tag))
+                    hist_box.insert(tk.END, f"   —   {city}, {ctry}\n", ("loc", row_tag))
+                    hist_box.insert(tk.END, f"   🕒 {dt}{isp_part}\n", ("meta", row_tag))
+                    hist_box.tag_bind(row_tag, "<Button-1>", lambda e, txt=line_text: self._copy_to_clipboard(txt, "✓ ردیف کپی شد!"))
+                    hist_box.tag_bind(row_tag, "<Button-3>", lambda e, ip_val=ip_s: self._copy_to_clipboard(ip_val, f"✓ IP کپی شد: {ip_val}"))
                     if idx < len(entries) - 1:
                         hist_box.insert(tk.END, "────────────────────────────────────────\n", "sep")
             hist_box.configure(state="disabled")
@@ -4294,6 +4299,21 @@ class PersianClockWidget:
             self._refresh_ip_window_labels()
             self._show_toast("تاریخچه لوکیشن پاک شد")
 
+        def _copy_all_hist():
+            entries = self.ip_history_store.get_recent_entries()
+            if not entries:
+                self._show_toast("تاریخچه‌ای برای کپی وجود ندارد")
+                return
+            lines = []
+            for item in entries:
+                dt = f"{item.get('jalali_date', '')} {item.get('time_str', '')}".strip()
+                city = item.get("city") or "—"
+                ctry = item.get("country") or item.get("country_code") or "—"
+                ip_s = item.get("ip") or "—"
+                isp = (item.get("isp") or "").strip()
+                lines.append(f"{dt} | {city}, {ctry} | {ip_s}{(' | ' + isp) if isp else ''}")
+            self._copy_to_clipboard("\n".join(lines), "✓ کل تاریخچه IP کپی شد!")
+
         tk.Button(
             hist_hdr,
             text="پاک کردن",
@@ -4305,6 +4325,27 @@ class PersianClockWidget:
             cursor="hand2",
             command=_clear_hist,
         ).pack(side="left")
+
+        tk.Button(
+            hist_hdr,
+            text="📋 کپی همه",
+            font=(font_fa, 8),
+            bg="#1E293B",
+            fg="#38BDF8",
+            relief="flat",
+            padx=6,
+            cursor="hand2",
+            command=_copy_all_hist,
+        ).pack(side="left", padx=(0, 4))
+
+        tk.Label(
+            outer,
+            text="💡 کلیک چپ روی هر مورد = کپی همان ردیف   •   کلیک راست = کپی فقط IP",
+            font=(font_fa, 7),
+            fg="#64748B",
+            bg="#0B1120",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 3))
 
         hist_frame = tk.Frame(outer, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
         hist_frame.pack(fill="both", expand=True)
