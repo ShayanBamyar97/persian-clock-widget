@@ -7,7 +7,7 @@
 روش ۱: نصب با فایل .deb (اوبونتو، دبیان، مینت، Pop!_OS، کالی)
 --------------------------------------------------------------------
 sudo apt update
-sudo apt install ./persian-clock-widget_1.0.0_all.deb
+sudo apt install ./persian-clock-widget_1.0.3_all.deb
 
 اجرا پس از نصب:
 persian-clock-widget
