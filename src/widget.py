@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import json
 import os
 import sys
+import threading
 import time
 import tkinter as tk
 from tkinter import colorchooser, font as tkfont, ttk
@@ -49,6 +50,7 @@ try:
         get_windows11_tray_clock_hidden,
         set_windows11_tray_clock_hidden,
     )
+    from src.ip_monitor import check_ip_lock_mismatch, fetch_ip_geolocation
 except ImportError:
     from alarm_manager import (
         AlarmManagerWindow,
@@ -85,6 +87,7 @@ except ImportError:
         get_windows11_tray_clock_hidden,
         set_windows11_tray_clock_hidden,
     )
+    from ip_monitor import check_ip_lock_mismatch, fetch_ip_geolocation
 
 DATA_DIR = get_data_dir()
 CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
@@ -132,6 +135,14 @@ DEFAULT_CONFIG = {
     "primary_timezone": "tehran",   # 'tehran' یا 'utc' (تایم اصلی ویجت بدون نمایش +03:30)
     "show_utc": False,              # نمایش ردیف مجزای ساعت و تاریخ UTC در ویجت برای برنامه‌نویسان
     "show_seconds": False,          # نمایش ثانیه در ساعت (همه‌جا: ویجت، UTC و تسک‌بار)
+    # پایش IP و قفل روی شهر/IP برای هشدار تغییر لوکیشن
+    "ip_monitor_enabled": True,     # نمایش نوار IP و شهر فعلی روی ویجت
+    "ip_check_interval": 5,         # بازه بررسی تغییر IP/لوکیشن (ثانیه)
+    "ip_lock_enabled": False,       # فعال بودن قفل روی لوکیشن/IP
+    "ip_lock_mode": "city",         # 'city' (قفل روی شهر)، 'ip' یا 'both'
+    "ip_locked_ip": "",
+    "ip_locked_city": "",
+    "ip_locked_country": "",
 }
 
 
@@ -345,6 +356,13 @@ class PersianClockWidget:
         self.settings_win: tk.Toplevel | None = None
         self.alarm_win: AlarmManagerWindow | None = None
         self.custom_occ_win: tk.Toplevel | None = None
+        self.ip_win: tk.Toplevel | None = None
+
+        self._ip_info: dict = {}
+        self._ip_fetch_inflight = False
+        self._ip_alert_active = False
+        self._ip_last_alert_key = ""
+        self._ip_alert_popup: AnimatedBellPopup | None = None
 
         self._build_compact_ui()
         self._build_lock_badge_window()
@@ -369,6 +387,7 @@ class PersianClockWidget:
 
         self._update_clock_loop()
         self._keep_z_order_loop()
+        self.root.after(1200, self._ip_monitor_loop)
 
     # ------------------------------------------------------------------
     # نمایش در تسک‌بار (ساعت روی تسک‌بار + دکمه برنامه در تسک‌بار)
@@ -857,6 +876,35 @@ class PersianClockWidget:
             12,
             100,
             window=self.btn_container,
+            anchor="nw",
+            tags="toolbar",
+        )
+
+        # نوار نمایش IP و شهر فعلی + قفل لوکیشن (قابل کلیک برای تنظیمات و قفل)
+        self.ip_pill_lbl = tk.Label(
+            self.canvas,
+            text="🌐 در حال بررسی IP و لوکیشن...",
+            font=(self.config["font_family"], 8, "bold"),
+            fg="#94A3B8",
+            bg="#161E2E",
+            highlightbackground="#2A364F",
+            highlightthickness=1,
+            padx=8,
+            pady=2,
+            cursor="hand2",
+        )
+        self.ip_pill_lbl.bind("<Button-1>", lambda e: (self.open_ip_monitor_window(), "break")[1])
+        self._attach_hover(
+            self.ip_pill_lbl,
+            "کلیک: مشاهده جزئیات IP، قفل روی شهر فعلی و هشدار تغییر لوکیشن",
+            base_fg_fn=lambda: self._get_ip_pill_fg(),
+            hover_bg="#1E293B",
+            hover_fg="#FFFFFF",
+        )
+        self._ip_pill_win_id = self.canvas.create_window(
+            12,
+            80,
+            window=self.ip_pill_lbl,
             anchor="nw",
             tags="toolbar",
         )
@@ -2487,6 +2535,10 @@ class PersianClockWidget:
             label="🎂 مدیریت مناسبت‌های شخصی و تولدها...",
             command=self.open_custom_occasions_manager,
         )
+        self.menu.add_command(
+            label="🌐 وضعیت IP و قفل شهر/لوکیشن...",
+            command=self.open_ip_monitor_window,
+        )
 
         self.menu.add_command(
             label="⚙️ تنظیمات ظاهری، رنگ، سایز و فونت...",
@@ -3464,12 +3516,22 @@ class PersianClockWidget:
         win_ctrl_right = toolbar_x + self.win_controls_container.winfo_reqwidth()
         dock_w = self.btn_container.winfo_reqwidth()
         dock_h = self.btn_container.winfo_reqheight()
+        show_ip_pill = (not is_locked) and bool(self.config.get("ip_monitor_enabled", True))
+        ip_pill_w, ip_pill_h = 0, 0
+        if show_ip_pill and hasattr(self, "ip_pill_lbl"):
+            self.ip_pill_lbl.update_idletasks()
+            ip_pill_w = self.ip_pill_lbl.winfo_reqwidth()
+            ip_pill_h = self.ip_pill_lbl.winfo_reqheight()
         if not is_locked:
             self.canvas.itemconfigure(self._win_controls_win_id, state="normal")
             self.canvas.itemconfigure(self._toolbar_win_id, state="normal")
+            if hasattr(self, "_ip_pill_win_id"):
+                self.canvas.itemconfigure(self._ip_pill_win_id, state="normal" if show_ip_pill else "hidden")
         else:
             self.canvas.itemconfigure(self._win_controls_win_id, state="hidden")
             self.canvas.itemconfigure(self._toolbar_win_id, state="hidden")
+            if hasattr(self, "_ip_pill_win_id"):
+                self.canvas.itemconfigure(self._ip_pill_win_id, state="hidden")
 
         primary_tz = self.config.get("primary_timezone", "tehran")
         show_utc = bool(self.config.get("show_utc", False))
@@ -3543,7 +3605,7 @@ class PersianClockWidget:
             target_w = max(top_needed_w, body_needed_w, int(130 * scale))
         else:
             top_needed_w = win_ctrl_right + time_w + 26
-            body_needed_w = max(date_w, utc_w, occ_w, dock_w) + 28
+            body_needed_w = max(date_w, utc_w, occ_w, dock_w, ip_pill_w) + 28
             target_w = max(int(self.BASE_MIN_W * scale), top_needed_w, body_needed_w)
 
         right_x = target_w - 14
@@ -3635,6 +3697,11 @@ class PersianClockWidget:
             cur_y += occ_h + 4
 
         if not is_locked:
+            if show_ip_pill and hasattr(self, "_ip_pill_win_id"):
+                cur_y += 3
+                pill_x = max(10, (target_w - ip_pill_w) // 2)
+                self.canvas.coords(self._ip_pill_win_id, pill_x, cur_y)
+                cur_y += ip_pill_h + 3
             cur_y += 4
             dock_x = max(10, (target_w - dock_w) // 2)
             self.canvas.coords(self._toolbar_win_id, dock_x, cur_y)
@@ -3716,6 +3783,390 @@ class PersianClockWidget:
     def _update_clock_loop(self):
         self._refresh_display()
         self.root.after(1000, self._update_clock_loop)
+
+    def _get_ip_pill_fg(self) -> str:
+        if getattr(self, "_ip_alert_active", False):
+            return "#FCA5A5"
+        if self.config.get("ip_lock_enabled", False):
+            return "#34D399"
+        if self._ip_info.get("ok"):
+            return "#38BDF8"
+        return "#94A3B8"
+
+    def _update_ip_pill_appearance(self):
+        if not hasattr(self, "ip_pill_lbl") or not self.ip_pill_lbl.winfo_exists():
+            return
+        info = self._ip_info
+        is_locked_ip = bool(self.config.get("ip_lock_enabled", False))
+        font_fa = self.config.get("font_family", "Vazir")
+        if self._ip_alert_active and info.get("ok"):
+            city = info.get("city") or info.get("country_code") or "Unknown"
+            txt = f"🚨 تغییر لوکیشن: {city} • {info.get('ip', '')}"
+            bg = "#450A0A"
+            border = "#EF4444"
+        elif info.get("ok"):
+            city = info.get("city") or "—"
+            cc = info.get("country_code") or ""
+            loc = f"{city}, {cc}" if cc else city
+            prefix = "🔒" if is_locked_ip else "🌐"
+            txt = f"{prefix} {loc} • {info.get('ip', '')}"
+            bg = self._get_btn_base_bg()
+            border = "#10B981" if is_locked_ip else "#2A364F"
+        else:
+            txt = "🌐 در حال بررسی IP و لوکیشن..."
+            bg = self._get_btn_base_bg()
+            border = "#2A364F"
+        self.ip_pill_lbl.configure(
+            text=txt,
+            fg=self._get_ip_pill_fg(),
+            bg=bg,
+            highlightbackground=border,
+            font=(font_fa, 8, "bold"),
+        )
+
+    def _ip_monitor_loop(self):
+        if self.config.get("ip_monitor_enabled", True) or self.config.get("ip_lock_enabled", False):
+            self._trigger_ip_check_async()
+        try:
+            sec = max(3, min(120, int(self.config.get("ip_check_interval", 5))))
+        except Exception:
+            sec = 5
+        self.root.after(sec * 1000, self._ip_monitor_loop)
+
+    def _trigger_ip_check_async(self):
+        if self._ip_fetch_inflight:
+            return
+        self._ip_fetch_inflight = True
+
+        def _worker():
+            try:
+                res = fetch_ip_geolocation(timeout=4.0)
+            except Exception:
+                res = {"ok": False}
+            try:
+                self.root.after(0, lambda r=res: self._handle_ip_result(r))
+            except Exception:
+                self._ip_fetch_inflight = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _handle_ip_result(self, info: dict):
+        self._ip_fetch_inflight = False
+        if info.get("ok"):
+            self._ip_info = info
+        changed, reason = check_ip_lock_mismatch(self._ip_info, self.config)
+        if changed:
+            self._ip_alert_active = True
+            mismatch_key = f"{self._ip_info.get('ip')}|{self._ip_info.get('city')}"
+            if mismatch_key != self._ip_last_alert_key:
+                self._ip_last_alert_key = mismatch_key
+                self._fire_ip_mismatch_alarm(reason)
+        else:
+            if self._ip_info.get("ok"):
+                self._ip_alert_active = False
+                self._ip_last_alert_key = ""
+        self._update_ip_pill_appearance()
+        self._refresh_ip_window_labels()
+        self._refresh_display()
+
+    def _fire_ip_mismatch_alarm(self, reason: str):
+        # بستن آلارم قبلی اگر هنوز باز است
+        if self._ip_alert_popup is not None:
+            try:
+                self._ip_alert_popup.stop_and_close()
+            except Exception:
+                pass
+            self._ip_alert_popup = None
+
+        alarm_payload = {
+            "id": "ip-lock-alert",
+            "title": "🚨 هشدار تغییر لوکیشن / IP!",
+            "message": reason,
+            "play_sound": True,
+            "sound_file": self.config.get("default_alarm_sound", "alarm.mp3"),
+        }
+        try:
+            self._ip_alert_popup = AnimatedBellPopup(
+                self.root,
+                alarm_payload,
+                font_family=self.config.get("font_family", "Vazir"),
+                on_dismiss=lambda _a: setattr(self, "_ip_alert_popup", None),
+            )
+        except Exception:
+            pass
+        try:
+            if hasattr(self, "tray") and self.tray:
+                self.tray.notify("🚨 هشدار تغییر لوکیشن / IP!", reason)
+        except Exception:
+            pass
+
+    def _lock_ip_location(self, mode: str = "city"):
+        if not self._ip_info.get("ok"):
+            self._show_toast("ابتدا اطلاعات IP دریافت شود...")
+            self._trigger_ip_check_async()
+            return
+        self.config["ip_lock_enabled"] = True
+        self.config["ip_lock_mode"] = mode
+        self.config["ip_locked_ip"] = self._ip_info.get("ip", "")
+        self.config["ip_locked_city"] = self._ip_info.get("city", "")
+        self.config["ip_locked_country"] = self._ip_info.get("country_code", "")
+        self._ip_alert_active = False
+        self._ip_last_alert_key = ""
+        self._save_config()
+        self._update_ip_pill_appearance()
+        self._refresh_ip_window_labels()
+        self._refresh_display()
+        if mode == "city":
+            self._show_toast(f"🔒 قفل روی شهر {self.config['ip_locked_city']} فعال شد")
+        elif mode == "ip":
+            self._show_toast(f"🔒 قفل روی IP {self.config['ip_locked_ip']} فعال شد")
+        else:
+            self._show_toast(f"🔒 قفل روی {self.config['ip_locked_city']} + IP فعال شد")
+
+    def _unlock_ip_location(self):
+        self.config["ip_lock_enabled"] = False
+        self._ip_alert_active = False
+        self._ip_last_alert_key = ""
+        self._save_config()
+        if self._ip_alert_popup is not None:
+            try:
+                self._ip_alert_popup.stop_and_close()
+            except Exception:
+                pass
+            self._ip_alert_popup = None
+        self._update_ip_pill_appearance()
+        self._refresh_ip_window_labels()
+        self._refresh_display()
+        self._show_toast("🔓 قفل لوکیشن/IP باز شد")
+
+    def _refresh_ip_window_labels(self):
+        if not self.ip_win or not self.ip_win.winfo_exists():
+            return
+        info = self._ip_info
+        labels = getattr(self, "_ip_win_labels", None)
+        if not labels:
+            return
+        if info.get("ok"):
+            labels["ip"].configure(text=info.get("ip") or "—")
+            labels["city"].configure(text=info.get("city") or "—")
+            labels["region"].configure(text=info.get("region") or "—")
+            cc = info.get("country_code") or ""
+            ctry = info.get("country") or "—"
+            labels["country"].configure(text=f"{ctry} ({cc})" if cc else ctry)
+            labels["isp"].configure(text=info.get("isp") or "—")
+            labels["tz"].configure(text=info.get("timezone") or "—")
+            labels["checked"].configure(text=info.get("checked_at") or "—")
+        else:
+            for k in ("ip", "city", "region", "country", "isp", "tz"):
+                labels[k].configure(text="در حال دریافت...")
+            labels["checked"].configure(text="—")
+
+        if self._ip_alert_active:
+            labels["status"].configure(
+                text=f"🚨 هشدار! موقعیت تغییر کرده است (قفل روی: {self.config.get('ip_locked_city') or self.config.get('ip_locked_ip')})",
+                fg="#FCA5A5",
+                bg="#450A0A",
+            )
+        elif self.config.get("ip_lock_enabled", False):
+            mode = self.config.get("ip_lock_mode", "city")
+            if mode == "city":
+                st = f"🔒 قفل فعال روی شهر: {self.config.get('ip_locked_city') or '—'}"
+            elif mode == "ip":
+                st = f"🔒 قفل فعال روی IP: {self.config.get('ip_locked_ip') or '—'}"
+            else:
+                st = f"🔒 قفل فعال روی شهر و IP: {self.config.get('ip_locked_city')} • {self.config.get('ip_locked_ip')}"
+            labels["status"].configure(text=st, fg="#6EE7B7", bg="#064E3B")
+        else:
+            labels["status"].configure(text="🔓 قفل غیرفعال است", fg="#CBD5E1", bg="#1E293B")
+
+    def open_ip_monitor_window(self):
+        if self.ip_win and self.ip_win.winfo_exists():
+            self.ip_win.lift()
+            self.ip_win.focus_force()
+            self._trigger_ip_check_async()
+            return
+
+        win = tk.Toplevel(self.root)
+        self.ip_win = win
+        win.title("پایش IP و قفل شهر / لوکیشن")
+        win.overrideredirect(True)
+        win.configure(bg="#0B1120")
+        win.attributes("-topmost", True)
+        w, h = 380, 420
+        sx = (win.winfo_screenwidth() - w) // 2
+        sy = (win.winfo_screenheight() - h) // 2
+        win.geometry(f"{w}x{h}+{sx}+{sy}")
+        try:
+            apply_rounded_corners(win, w, h, radius=16, enabled=True)
+        except Exception:
+            pass
+
+        font_fa = self.config.get("font_family", "Vazir")
+        outer = tk.Frame(win, bg="#0B1120", highlightbackground="#334155", highlightthickness=1, padx=14, pady=12)
+        outer.pack(fill="both", expand=True)
+
+        hdr = tk.Frame(outer, bg="#0B1120")
+        hdr.pack(fill="x", pady=(0, 8))
+        tk.Label(
+            hdr,
+            text="🌐 موقعیت دقیق IP و قفل شهر",
+            font=(font_fa, 11, "bold"),
+            fg="#38BDF8",
+            bg="#0B1120",
+        ).pack(side="right")
+        close_lbl = tk.Label(
+            hdr,
+            text="✕",
+            font=("Segoe UI", 10, "bold"),
+            fg="#94A3B8",
+            bg="#0B1120",
+            cursor="hand2",
+            padx=6,
+        )
+        close_lbl.pack(side="left")
+        close_lbl.bind("<Button-1>", lambda e: win.destroy())
+
+        status_lbl = tk.Label(
+            outer,
+            text="",
+            font=(font_fa, 9, "bold"),
+            fg="#CBD5E1",
+            bg="#1E293B",
+            pady=6,
+            padx=8,
+            wraplength=340,
+            justify="center",
+        )
+        status_lbl.pack(fill="x", pady=(0, 10))
+
+        card = tk.Frame(outer, bg="#111827", highlightbackground="#1F2937", highlightthickness=1, padx=10, pady=8)
+        card.pack(fill="x", pady=(0, 10))
+
+        self._ip_win_labels = {"status": status_lbl}
+        rows = [
+            ("ip", "IP عمومی:"),
+            ("city", "شهر (City):"),
+            ("region", "استان / منطقه:"),
+            ("country", "کشور:"),
+            ("isp", "سرویس‌دهنده (ISP):"),
+            ("tz", "تایم‌زون IP:"),
+            ("checked", "آخرین بررسی:"),
+        ]
+        for key, title in rows:
+            rf = tk.Frame(card, bg="#111827")
+            rf.pack(fill="x", pady=2)
+            tk.Label(rf, text=title, font=(font_fa, 9), fg="#94A3B8", bg="#111827", anchor="e").pack(side="right")
+            val_lbl = tk.Label(
+                rf,
+                text="...",
+                font=("Consolas", 9, "bold") if key in ("ip", "tz", "checked") else (font_fa, 9, "bold"),
+                fg="#F8FAFC" if key != "city" else "#38BDF8",
+                bg="#111827",
+                anchor="w",
+            )
+            val_lbl.pack(side="left")
+            self._ip_win_labels[key] = val_lbl
+
+        btn_row1 = tk.Frame(outer, bg="#0B1120")
+        btn_row1.pack(fill="x", pady=(0, 6))
+        tk.Button(
+            btn_row1,
+            text="🔒 قفل روی شهر فعلی",
+            font=(font_fa, 9, "bold"),
+            bg="#059669",
+            fg="#FFFFFF",
+            activebackground="#047857",
+            relief="flat",
+            cursor="hand2",
+            pady=5,
+            command=lambda: self._lock_ip_location("city"),
+        ).pack(side="right", expand=True, fill="x", padx=(4, 0))
+        tk.Button(
+            btn_row1,
+            text="🔒 قفل روی IP فعلی",
+            font=(font_fa, 9, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            activebackground="#0369A1",
+            relief="flat",
+            cursor="hand2",
+            pady=5,
+            command=lambda: self._lock_ip_location("ip"),
+        ).pack(side="right", expand=True, fill="x", padx=(0, 4))
+
+        btn_row2 = tk.Frame(outer, bg="#0B1120")
+        btn_row2.pack(fill="x", pady=(0, 10))
+        tk.Button(
+            btn_row2,
+            text="🔓 باز کردن قفل",
+            font=(font_fa, 9, "bold"),
+            bg="#334155",
+            fg="#F8FAFC",
+            activebackground="#475569",
+            relief="flat",
+            cursor="hand2",
+            pady=4,
+            command=self._unlock_ip_location,
+        ).pack(side="right", expand=True, fill="x", padx=(4, 0))
+        tk.Button(
+            btn_row2,
+            text="🔄 بررسی فوری",
+            font=(font_fa, 9, "bold"),
+            bg="#1E293B",
+            fg="#38BDF8",
+            activebackground="#334155",
+            relief="flat",
+            cursor="hand2",
+            pady=4,
+            command=self._trigger_ip_check_async,
+        ).pack(side="right", expand=True, fill="x", padx=(0, 4))
+
+        opt_f = tk.Frame(outer, bg="#0B1120")
+        opt_f.pack(fill="x")
+        show_var = tk.BooleanVar(value=bool(self.config.get("ip_monitor_enabled", True)))
+
+        def _toggle_show():
+            self.config["ip_monitor_enabled"] = bool(show_var.get())
+            self._save_config()
+            self._refresh_display()
+
+        tk.Checkbutton(
+            opt_f,
+            text="نمایش نوار IP و شهر روی ویجت",
+            variable=show_var,
+            command=_toggle_show,
+            font=(font_fa, 8),
+            fg="#CBD5E1",
+            bg="#0B1120",
+            selectcolor="#1E293B",
+            activebackground="#0B1120",
+            activeforeground="#FFFFFF",
+        ).pack(side="right")
+
+        iv_f = tk.Frame(opt_f, bg="#0B1120")
+        iv_f.pack(side="left")
+        tk.Label(iv_f, text="بازه (ثانیه):", font=(font_fa, 8), fg="#94A3B8", bg="#0B1120").pack(side="right", padx=(4, 0))
+        iv_var = tk.StringVar(value=str(int(self.config.get("ip_check_interval", 5))))
+        for val in ("5", "10", "30"):
+            def _set_iv(v=val):
+                iv_var.set(v)
+                self.config["ip_check_interval"] = int(v)
+                self._save_config()
+                self._show_toast(f"بازه بررسی IP: هر {v} ثانیه")
+            tk.Button(
+                iv_f,
+                text=val,
+                font=("Consolas", 8, "bold"),
+                bg="#1E293B",
+                fg="#E2E8F0",
+                relief="flat",
+                padx=5,
+                cursor="hand2",
+                command=_set_iv,
+            ).pack(side="right", padx=1)
+
+        self._refresh_ip_window_labels()
+        self._trigger_ip_check_async()
 
     def _keep_z_order_loop(self):
         if not self._is_dragging and not getattr(self, "_is_minimized", False) and self.widget_win and self.widget_win.winfo_viewable():
