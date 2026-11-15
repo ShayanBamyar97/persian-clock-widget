@@ -121,7 +121,7 @@ DEFAULT_CONFIG = {
     # نمایش و جایگزینی در تسک‌بار ویندوز
     "replace_windows_clock": False,     # ⭐ جایگزینی کامل و پوشاندن ساعت پیش‌فرض ویندوز
     "replace_clock_hide_widget": False, # مخفی کردن ویجت دسکتاپ هنگام فعال بودن جایگزین
-    "replace_clock_width": 118,         # عرض باکس پوشش‌دهنده ساعت ویندوز
+    "replace_clock_width": 82,          # عرض باکس پوشش‌دهنده ساعت ویندوز (هم‌اندازه ساعت بومی ویندوز)
     "replace_clock_offset": 8,          # فاصله از گوشه راست تسک‌بار
     "replace_clock_bg": "auto",         # تشخیص خودکار رنگ تسک‌بار ویندوز (یا رنگ دلخواه)
     "taskbar_clock": False,         # نمایش ساعت و تاریخ شمسی روی خود نوار تسک‌بار (شناور)
@@ -3053,7 +3053,7 @@ class PersianClockWidget:
 
         def on_reset_replacer_pos():
             self.config["replace_clock_offset"] = 8
-            self.config["replace_clock_width"] = 118
+            self.config["replace_clock_width"] = 82
             self._save_config()
             try:
                 sp_rw.delete(0, "end")
@@ -3178,7 +3178,7 @@ class PersianClockWidget:
             buttonbackground="#334155",
         )
         sp_rw.delete(0, "end")
-        sp_rw.insert(0, str(self.config.get("replace_clock_width", 118)))
+        sp_rw.insert(0, str(self.config.get("replace_clock_width", 82)))
 
         def on_rw_change(*args):
             try:

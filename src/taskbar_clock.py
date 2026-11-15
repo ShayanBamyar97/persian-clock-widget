@@ -264,6 +264,13 @@ class _SingleTaskbarReplacer:
         self._hidden_win10_clock_hwnd: int | None = None
         self._last_color_probe_ts = 0.0
         self._is_light_tb = is_taskbar_light_theme()
+        fams = set(tkfont.families())
+        if "Segoe UI Variable Text" in fams:
+            self._win_tb_font = "Segoe UI Variable Text"
+        elif "Segoe UI" in fams:
+            self._win_tb_font = "Segoe UI"
+        else:
+            self._win_tb_font = "Tahoma"
 
         self.win = tk.Toplevel(self.root)
         self.win.title("WindowsClockReplacer")
@@ -602,9 +609,18 @@ class _SingleTaskbarReplacer:
         date_txt = f"{jy:04d}/{jm:02d}/{jd:02d}"
         date_txt = self.app.format_digits_public(date_txt, use_fa)
 
-        # عرض و ارتفاع باکس پوشش ساعت ویندوز
-        win_w = int(cfg.get("replace_clock_width", 118))
-        win_h = tb_h if horizontal else 56
+        # فونت هم‌اندازه و هم‌شکل ساعت بومی ویندوز (Segoe UI Variable Text / Segoe UI)
+        tb_font = getattr(self, "_win_tb_font", "Segoe UI")
+        time_font = (tb_font, 9)
+        date_font = (tb_font, 8)
+        f_time = tkfont.Font(family=tb_font, size=9)
+        f_date = tkfont.Font(family=tb_font, size=8)
+        auto_w = max(68, max(f_time.measure(time_txt), f_date.measure(date_txt)) + 12)
+
+        # عرض و ارتفاع باکس پوشش ساعت ویندوز (فشرده تا روی آیکون‌های کناری تسک‌بار نرود)
+        cfg_w = int(cfg.get("replace_clock_width", 82))
+        win_w = min(cfg_w, auto_w + 6) if cfg_w >= 110 else max(68, min(cfg_w, auto_w + 10))
+        win_h = tb_h if horizontal else 52
 
         # موقعیت: دقیقاً روی ساعت پیش‌فرض ویندوز در گوشه راست تسک‌بار
         saved_off = cfg.get("replace_clock_offset", 8)
@@ -634,51 +650,26 @@ class _SingleTaskbarReplacer:
             clock_color = cfg.get("clock_color", "#F8FAFC")
             date_color = cfg.get("holiday_color", "#F87171") if is_hol else cfg.get("date_color", "#CBD5E1")
 
-        # موقعیت عمودی هماهنگ با تسک‌بار ویندوز ۱۰ و ۱۱
-        y_time = max(3, int(win_h * 0.10))
-        y_date = max(y_time + 17, int(win_h * 0.52))
+        # موقعیت عمودی هماهنگ با ساعت بومی ویندوز ۱۰ و ۱۱
+        y_time = max(4, int(win_h * 0.14))
+        y_date = max(y_time + 16, int(win_h * 0.52))
 
-        if self._is_light_tb and (bg_cfg == "auto" or not bg_cfg):
-            self.canvas.create_text(
-                win_w // 2,
-                y_time,
-                text=time_txt,
-                font=(font_clock, 10, "bold"),
-                fill=clock_color,
-                anchor="n",
-            )
-            self.canvas.create_text(
-                win_w // 2,
-                y_date,
-                text=date_txt,
-                font=(font_fa, 8, "bold"),
-                fill=date_color,
-                anchor="n",
-            )
-        else:
-            # خط ۱: ساعت به وقت تهران
-            draw_outlined_canvas_text(
-                self.canvas,
-                win_w // 2,
-                y_time,
-                text=time_txt,
-                font_spec=(font_clock, 10, "bold"),
-                fill=clock_color,
-                outline="#000000",
-                anchor="n",
-            )
-
-            # خط ۲: تاریخ شمسی
-            draw_outlined_canvas_text(
-                self.canvas,
-                win_w // 2,
-                y_date,
-                text=date_txt,
-                font_spec=(font_fa, 8, "bold"),
-                fill=date_color,
-                outline="#000000",
-                anchor="n",
-            )
+        self.canvas.create_text(
+            win_w // 2,
+            y_time,
+            text=time_txt,
+            font=time_font,
+            fill=clock_color,
+            anchor="n",
+        )
+        self.canvas.create_text(
+            win_w // 2,
+            y_date,
+            text=date_txt,
+            font=date_font,
+            fill=date_color,
+            anchor="n",
+        )
 
         self._last_w, self._last_h = win_w, win_h
         if not self._dragged:
