@@ -542,32 +542,38 @@ class _SingleTaskbarReplacer:
         tb_h = tb_b - tb_t
         horizontal = tb_w >= tb_h
 
-        # متن ساعت
-        base_hm = str(info.get("time_str", ""))[:5]
-        if cfg.get("show_seconds", False) or cfg.get("taskbar_clock_seconds", False):
-            time_txt = f"{base_hm}:{int(info.get('second', 0)):02d}"
-        else:
-            time_txt = base_hm
-        time_txt = self.app.format_digits_public(time_txt, use_fa)
-
-        # متن تاریخ شمسی (کوتاه و استاندارد برای قرارگیری در تسک‌بار)
-        jy = info.get("jy")
-        jm = info.get("jm")
-        jd = info.get("jd")
-        date_txt = f"{jy:04d}/{jm:02d}/{jd:02d}"
-        date_txt = self.app.format_digits_public(date_txt, use_fa)
+        # متن ساعت و تاریخ بر اساس تنظیمات (تایم‌زون، ثانیه و تقویم شمسی/میلادی/هر دو)
+        disp = self.app.get_clock_display_parts(info)
+        time_txt = disp["time_str"]
+        date_txt = disp["tb_overlay_date"]
+        date_txt2 = disp.get("tb_overlay_date_line2", "")
+        three_line = bool(date_txt2) and horizontal and tb_h >= 40
+        if date_txt2 and not three_line:
+            date_txt = f"{date_txt} • {date_txt2}"
+            date_txt2 = ""
 
         # فونت هم‌اندازه و هم‌شکل ساعت بومی ویندوز (Segoe UI Variable Text / Segoe UI)
         tb_font = getattr(self, "_win_tb_font", "Segoe UI")
-        time_font = (tb_font, 9)
-        date_font = (tb_font, 8)
-        f_time = tkfont.Font(family=tb_font, size=9)
-        f_date = tkfont.Font(family=tb_font, size=8)
-        auto_w = max(68, max(f_time.measure(time_txt), f_date.measure(date_txt)) + 12)
+        if three_line:
+            time_font = (tb_font, 8, "bold")
+            date_font = (tb_font, 7)
+            f_time = tkfont.Font(family=tb_font, size=8, weight="bold")
+            f_date = tkfont.Font(family=tb_font, size=7)
+            max_date_w = max(f_date.measure(date_txt), f_date.measure(date_txt2))
+        else:
+            time_font = (tb_font, 9)
+            date_font = (tb_font, 8)
+            f_time = tkfont.Font(family=tb_font, size=9)
+            f_date = tkfont.Font(family=tb_font, size=8)
+            max_date_w = f_date.measure(date_txt)
+        auto_w = max(68, max(f_time.measure(time_txt), max_date_w) + 12)
 
-        # عرض و ارتفاع باکس پوشش ساعت ویندوز (فشرده تا روی آیکون‌های کناری تسک‌بار نرود)
+        # عرض و ارتفاع باکس پوشش ساعت ویندوز
         cfg_w = int(cfg.get("replace_clock_width", 82))
-        win_w = min(cfg_w, auto_w + 6) if cfg_w >= 110 else max(68, min(cfg_w, auto_w + 10))
+        if disp["show_seconds"] or (date_txt2 == "" and disp["date_calendar"] == "both") or (auto_w + 6 > cfg_w):
+            win_w = max(cfg_w, auto_w + 8)
+        else:
+            win_w = min(cfg_w, auto_w + 6) if cfg_w >= 110 else max(68, min(cfg_w, auto_w + 10))
         win_h = tb_h if horizontal else 52
 
         # موقعیت: دقیقاً روی ساعت پیش‌فرض ویندوز در گوشه راست تسک‌بار
@@ -598,26 +604,55 @@ class _SingleTaskbarReplacer:
             clock_color = cfg.get("clock_color", "#F8FAFC")
             date_color = cfg.get("holiday_color", "#F87171") if is_hol else cfg.get("date_color", "#CBD5E1")
 
-        # موقعیت عمودی هماهنگ با ساعت بومی ویندوز ۱۰ و ۱۱
-        y_time = max(4, int(win_h * 0.14))
-        y_date = max(y_time + 16, int(win_h * 0.52))
+        # موقعیت عمودی هماهنگ با ساعت بومی ویندوز ۱۰ و ۱۱ (دو خطی یا سه‌خطی برای نمایش هم‌زمان شمسی و میلادی)
+        if three_line:
+            y_time = 2
+            y_date1 = max(15, int(win_h * 0.34))
+            y_date2 = max(y_date1 + 12, int(win_h * 0.62))
+            self.canvas.create_text(
+                win_w // 2,
+                y_time,
+                text=time_txt,
+                font=time_font,
+                fill=clock_color,
+                anchor="n",
+            )
+            self.canvas.create_text(
+                win_w // 2,
+                y_date1,
+                text=date_txt,
+                font=date_font,
+                fill=date_color,
+                anchor="n",
+            )
+            self.canvas.create_text(
+                win_w // 2,
+                y_date2,
+                text=date_txt2,
+                font=date_font,
+                fill=date_color,
+                anchor="n",
+            )
+        else:
+            y_time = max(4, int(win_h * 0.14))
+            y_date = max(y_time + 16, int(win_h * 0.52))
 
-        self.canvas.create_text(
-            win_w // 2,
-            y_time,
-            text=time_txt,
-            font=time_font,
-            fill=clock_color,
-            anchor="n",
-        )
-        self.canvas.create_text(
-            win_w // 2,
-            y_date,
-            text=date_txt,
-            font=date_font,
-            fill=date_color,
-            anchor="n",
-        )
+            self.canvas.create_text(
+                win_w // 2,
+                y_time,
+                text=time_txt,
+                font=time_font,
+                fill=clock_color,
+                anchor="n",
+            )
+            self.canvas.create_text(
+                win_w // 2,
+                y_date,
+                text=date_txt,
+                font=date_font,
+                fill=date_color,
+                anchor="n",
+            )
 
         self._last_w, self._last_h = win_w, win_h
         if not self._dragged:
@@ -804,17 +839,11 @@ class TaskbarClockOverlay:
         tb_h = tb_b - tb_t
         horizontal = tb_w >= tb_h
 
-        base_hm = str(info.get("time_str", ""))[:5]
-        if cfg.get("show_seconds", False) or cfg.get("taskbar_clock_seconds", False):
-            time_txt = f"{base_hm}:{int(info.get('second', 0)):02d}"
-        else:
-            time_txt = base_hm
-        date_txt = f"{info.get('weekday_name', '')} {info.get('date_numeric', '')}"
+        disp = self.app.get_clock_display_parts(info)
+        time_txt = disp["time_str"]
+        date_txt = disp["tb_float_date"]
         if info.get("has_occasion") and info.get("is_holiday"):
             date_txt += " • تعطیل"
-
-        time_txt = self.app.format_digits_public(time_txt, use_fa)
-        date_txt = self.app.format_digits_public(date_txt, use_fa)
 
         bar_h = tb_h if horizontal else 56
         t_size = 10 if bar_h >= 44 else 9
