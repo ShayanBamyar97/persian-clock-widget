@@ -72,7 +72,7 @@ class DevAiHubWindow:
         win.configure(bg="#0B1120")
         win.attributes("-topmost", True)
 
-        w, h = 540, 560
+        w, h = 640, 620
         sx = (win.winfo_screenwidth() - w) // 2
         sy = (win.winfo_screenheight() - h) // 2
         win.geometry(f"{w}x{h}+{sx}+{sy}")
@@ -171,6 +171,8 @@ class DevAiHubWindow:
             fg="#E2E8F0",
             bg="#0F172A",
             anchor="e",
+            justify="right",
+            wraplength=580,
         ).pack(fill="x", pady=(0, 4))
 
         row = tk.Frame(parent, bg="#0F172A")
@@ -251,8 +253,23 @@ class DevAiHubWindow:
         jwt_status = tk.Label(parent, text="توکن JWT را وارد کنید...", font=(font_fa, 8, "bold"), fg="#94A3B8", bg="#111827", pady=4)
         jwt_status.pack(fill="x", pady=(0, 4))
 
-        jwt_out = tk.Text(parent, height=7, font=("Consolas", 8), bg="#111827", fg="#E2E8F0", bd=0, relief="flat")
-        jwt_out.pack(fill="both", expand=True)
+        jwt_frame = tk.Frame(parent, bg="#111827")
+        jwt_frame.pack(fill="both", expand=True)
+        jwt_scroll = tk.Scrollbar(jwt_frame, orient="vertical")
+        jwt_out = tk.Text(
+            jwt_frame,
+            height=7,
+            font=("Consolas", 8),
+            wrap="word",
+            yscrollcommand=jwt_scroll.set,
+            bg="#111827",
+            fg="#E2E8F0",
+            bd=0,
+            relief="flat",
+        )
+        jwt_scroll.config(command=jwt_out.yview)
+        jwt_scroll.pack(side="left", fill="y")
+        jwt_out.pack(side="right", fill="both", expand=True)
 
         def _decode_jwt():
             try:
@@ -296,11 +313,25 @@ class DevAiHubWindow:
         cron_entry.insert(0, "*/15 9-17 * * 1-5")
 
         tz_var = tk.StringVar(value="tehran")
-        desc_lbl = tk.Label(parent, text="", font=(font_fa, 9, "bold"), fg="#A7F3D0", bg="#111827", pady=6, wraplength=480)
+        desc_lbl = tk.Label(parent, text="", font=(font_fa, 9, "bold"), fg="#A7F3D0", bg="#111827", pady=6, wraplength=580)
         desc_lbl.pack(fill="x", pady=(0, 6))
 
-        runs_box = tk.Listbox(parent, height=7, font=("Consolas", 9), bg="#111827", fg="#E2E8F0", bd=0, highlightthickness=1, highlightbackground="#1F2937")
-        runs_box.pack(fill="both", expand=True, pady=(0, 8))
+        runs_frame = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
+        runs_frame.pack(fill="both", expand=True, pady=(0, 8))
+        runs_scroll = tk.Scrollbar(runs_frame, orient="vertical")
+        runs_box = tk.Listbox(
+            runs_frame,
+            height=7,
+            font=("Consolas", 9),
+            yscrollcommand=runs_scroll.set,
+            bg="#111827",
+            fg="#E2E8F0",
+            bd=0,
+            highlightthickness=0,
+        )
+        runs_scroll.config(command=runs_box.yview)
+        runs_scroll.pack(side="left", fill="y")
+        runs_box.pack(side="right", fill="both", expand=True)
 
         def _analyze_cron():
             expr = cron_entry.get().strip()
@@ -578,6 +609,17 @@ class DevAiHubWindow:
         port = int(self.app.config.get("ai_api_port", 17845))
         is_on = bool(api and api.running)
 
+        tk.Label(
+            parent,
+            text="اتصال مستقیم ابزارهای هوش مصنوعی (Claude Desktop، Antigravity، Cursor) و اسکریپت‌های محلی به ویجت — ۱۰۰٪ امن و فقط روی 127.0.0.1:",
+            font=(font_fa, 8),
+            fg="#CBD5E1",
+            bg="#0F172A",
+            anchor="e",
+            justify="right",
+            wraplength=585,
+        ).pack(fill="x", pady=(0, 6))
+
         st_lbl = tk.Label(
             parent,
             text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{port}" if is_on else "🔴 سرور محلی AI متوقف است",
@@ -586,7 +628,7 @@ class DevAiHubWindow:
             bg="#064E3B" if is_on else "#450A0A",
             pady=6,
         )
-        st_lbl.pack(fill="x", pady=(0, 8))
+        st_lbl.pack(fill="x", pady=(0, 6))
 
         def _toggle_srv():
             if not api:
@@ -617,9 +659,6 @@ class DevAiHubWindow:
             command=_toggle_srv,
         ).pack(fill="x", pady=(0, 8))
 
-        info_txt = tk.Text(parent, height=11, font=("Consolas", 8), bg="#111827", fg="#E2E8F0", bd=0, padx=8, pady=6)
-        info_txt.pack(fill="both", expand=True, pady=(0, 8))
-
         mcp_snippet = json.dumps(
             {
                 "mcpServers": {
@@ -630,28 +669,73 @@ class DevAiHubWindow:
             },
             indent=2,
         )
-        endpoints_doc = (
-            f"REST Endpoints (127.0.0.1:{port}):\n"
-            f"  GET  /health  -> وضعیت سرور\n"
-            f"  GET  /now     -> ساعت تهران، تاریخ شمسی، UTC، تعطیلی\n"
-            f"  GET  /ip      -> وضعیت IP، شهر، قفل و تاریخچه ۳ روزه\n"
-            f"  GET  /alarms  -> لیست آلارم‌ها و رویدادها\n"
-            f"  POST /alarms  -> ثبت یادآور/اکشن (in_minutes یا jalali_date)\n"
-            f"  POST /timer   -> شروع تایمر پومودورو\n"
-            f"  POST /mcp     -> MCP JSON-RPC 2.0 (tools/list, tools/call)\n\n"
-            f"MCP Config:\n{mcp_snippet}"
-        )
-        info_txt.insert("1.0", endpoints_doc)
-        info_txt.configure(state="disabled")
 
+        # دکمه‌های پایین را قبل از باکس اسکرول‌دار pack می‌کنیم تا هرگز نصفه یا بریده نشوند
+        btn_row = tk.Frame(parent, bg="#0F172A")
+        btn_row.pack(side="bottom", fill="x", pady=(8, 0))
         tk.Button(
-            parent,
-            text="📋 کپی کانفیگ MCP برای Claude / Antigravity / Cursor",
-            font=(font_fa, 9, "bold"),
+            btn_row,
+            text="📋 کپی کانفیگ MCP (Claude / Antigravity / Cursor)",
+            font=(font_fa, 8, "bold"),
             bg="#7C3AED",
             fg="#FFFFFF",
             relief="flat",
             pady=6,
             cursor="hand2",
             command=lambda: self._copy(mcp_snippet, "کانفیگ MCP"),
-        ).pack(fill="x")
+        ).pack(side="right", fill="x", expand=True, padx=(4, 0))
+        tk.Button(
+            btn_row,
+            text="📋 کپی آدرس API",
+            font=(font_fa, 8, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=6,
+            padx=10,
+            cursor="hand2",
+            command=lambda: self._copy(f"http://127.0.0.1:{port}", "آدرس REST API"),
+        ).pack(side="left", padx=(0, 4))
+
+        txt_frame = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
+        txt_frame.pack(fill="both", expand=True)
+        txt_scroll = tk.Scrollbar(txt_frame, orient="vertical")
+        info_txt = tk.Text(
+            txt_frame,
+            yscrollcommand=txt_scroll.set,
+            font=("Consolas", 9),
+            wrap="word",
+            bg="#111827",
+            fg="#E2E8F0",
+            bd=0,
+            highlightthickness=0,
+            padx=8,
+            pady=8,
+            cursor="arrow",
+        )
+        txt_scroll.config(command=info_txt.yview)
+        txt_scroll.pack(side="left", fill="y")
+        info_txt.pack(side="right", fill="both", expand=True)
+
+        info_txt.tag_configure("hdr", foreground="#38BDF8", font=("Consolas", 9, "bold"))
+        info_txt.tag_configure("ep", foreground="#34D399", font=("Consolas", 9, "bold"))
+        info_txt.tag_configure("desc", foreground="#CBD5E1", font=(font_fa, 8))
+        info_txt.tag_configure("code", foreground="#FDE68A", font=("Consolas", 9))
+
+        info_txt.insert(tk.END, f"REST Endpoints (http://127.0.0.1:{port}):\n", "hdr")
+        endpoints = [
+            ("GET  /health ", "وضعیت سلامت سرور محلی\n"),
+            ("GET  /now    ", "ساعت دقیق تهران، تاریخ شمسی، UTC و وضعیت تعطیلی\n"),
+            ("GET  /ip     ", "IP فعلی، شهر/کشور، وضعیت قفل و تاریخچه ۳ روزه\n"),
+            ("GET  /alarms ", "لیست آلارم‌ها و رویدادهای ثبت‌شده\n"),
+            ("POST /alarms ", "ثبت یادآور یا اکشن زمان‌بندی‌شده (in_minutes یا jalali_date)\n"),
+            ("POST /timer  ", "شروع تایمر پومودورو از طریق API\n"),
+            ("POST /mcp    ", "درگاه MCP JSON-RPC 2.0 (tools/list, tools/call)\n\n"),
+        ]
+        for ep, desc in endpoints:
+            info_txt.insert(tk.END, f"  {ep} -> ", "ep")
+            info_txt.insert(tk.END, desc, "desc")
+
+        info_txt.insert(tk.END, "MCP Config (برای Claude / Antigravity / Cursor):\n", "hdr")
+        info_txt.insert(tk.END, mcp_snippet, "code")
+        info_txt.configure(state="disabled")
