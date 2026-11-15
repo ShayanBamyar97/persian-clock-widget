@@ -1303,8 +1303,8 @@ class PersianClockWidget:
             bg=bg,
             highlightbackground=self.config["border_color"],
             highlightthickness=1,
-            padx=12,
-            pady=10,
+            padx=10,
+            pady=8,
         )
         self.cal_frame.pack(fill="both", expand=True)
 
@@ -1376,6 +1376,7 @@ class PersianClockWidget:
 
         self.cal_title_canvas = tk.Canvas(
             self.cal_header,
+            width=150,
             height=26,
             bg=bg,
             highlightthickness=0,
@@ -1388,8 +1389,8 @@ class PersianClockWidget:
         for col_idx in range(7):
             c_canvas = tk.Canvas(
                 self.week_header,
-                width=36,
-                height=22,
+                width=34,
+                height=20,
                 bg=bg,
                 highlightthickness=0,
             )
@@ -1398,7 +1399,7 @@ class PersianClockWidget:
             self.week_canvases.append(c_canvas)
 
         self.days_grid_frame = tk.Frame(self.cal_frame, bg=bg)
-        self.days_grid_frame.pack(fill="x", pady=(0, 6))
+        self.days_grid_frame.pack(fill="x", pady=(0, 4))
 
         self.day_cells: list[tk.Canvas] = []
         for r in range(6):
@@ -1407,8 +1408,8 @@ class PersianClockWidget:
                 self.days_grid_frame.grid_columnconfigure(c, weight=1)
                 cell = tk.Canvas(
                     self.days_grid_frame,
-                    width=36,
-                    height=28,
+                    width=34,
+                    height=26,
                     bg=bg,
                     highlightthickness=0,
                     cursor="hand2",
@@ -1417,14 +1418,15 @@ class PersianClockWidget:
                 self.day_cells.append(cell)
 
         self.cal_sep = tk.Frame(self.cal_frame, bg=self.config["border_color"], height=1)
-        self.cal_sep.pack(fill="x", pady=(2, 6))
+        self.cal_sep.pack(fill="x", pady=(2, 4))
 
         self.cal_bottom_bar = tk.Frame(self.cal_frame, bg=bg)
         self.cal_bottom_bar.pack(side="bottom", fill="x", pady=(4, 0))
 
         self.detail_canvas = tk.Canvas(
             self.cal_frame,
-            height=74,
+            width=260,
+            height=54,
             bg=bg,
             highlightthickness=0,
         )
@@ -1432,12 +1434,12 @@ class PersianClockWidget:
 
         self.add_event_btn = tk.Label(
             self.cal_bottom_bar,
-            text="⏰ + آلارم / رویداد",
+            text="⏰ + آلارم",
             font=(self.config["font_family"], 8, "bold"),
             fg="#FBBF24",
             bg="#1E2638",
-            padx=7,
-            pady=3,
+            padx=6,
+            pady=2,
             cursor="hand2",
         )
         self.add_event_btn.pack(side="right")
@@ -1453,15 +1455,15 @@ class PersianClockWidget:
 
         self.add_occasion_btn = tk.Label(
             self.cal_bottom_bar,
-            text="🎂 + مناسبت / تولد",
+            text="🎂 + تولد/مناسبت",
             font=(self.config["font_family"], 8, "bold"),
             fg="#F472B6",
             bg="#1E2638",
-            padx=7,
-            pady=3,
+            padx=6,
+            pady=2,
             cursor="hand2",
         )
-        self.add_occasion_btn.pack(side="right", padx=(0, 6))
+        self.add_occasion_btn.pack(side="right", padx=(0, 4))
         self.add_occasion_btn.bind("<Button-1>", lambda e: self.open_custom_occasions_manager())
         self._attach_hover(
             self.add_occasion_btn,
@@ -1512,10 +1514,11 @@ class PersianClockWidget:
             fg_color = self.config["holiday_color"] if p_idx == 6 else self.config["occasion_color"]
             w_canvas.configure(bg=bg)
             w_canvas.delete("all")
+            wc_w = max(34, w_canvas.winfo_width())
             draw_outlined_canvas_text(
                 w_canvas,
-                18,
-                11,
+                wc_w // 2,
+                10,
                 text=day_short,
                 font_spec=(font_fa, 8, "bold"),
                 fill=fg_color,
@@ -1572,19 +1575,21 @@ class PersianClockWidget:
                 cell_fg = self.config["holiday_color"] if day_info["is_holiday"] else self.config["clock_color"]
 
             cell.configure(bg=cell_bg, cursor="hand2")
+            cell_w = max(34, cell.winfo_width())
+            cell_h = max(26, cell.winfo_height())
             if is_today or is_selected:
                 cell.create_rectangle(
                     1,
                     1,
-                    34,
-                    26,
+                    cell_w - 2,
+                    cell_h - 2,
                     outline="#38BDF8" if is_today else "#64748B",
                     width=1,
                 )
             draw_outlined_canvas_text(
                 cell,
-                18,
-                12,
+                cell_w // 2,
+                (cell_h // 2) - 2,
                 text=day_str,
                 font_spec=(font_fa, 9, "bold" if (is_today or is_selected) else "normal"),
                 fill=cell_fg,
@@ -1593,7 +1598,9 @@ class PersianClockWidget:
             if has_any_event:
                 has_bday = "🎂" in (day_info.get("occasion") or "")
                 dot_color = "#F472B6" if has_bday else ("#FBBF24" if user_alarms else self.config["accent_color"])
-                cell.create_oval(16, 22, 20, 26, fill=dot_color, outline="#000000")
+                dx = cell_w // 2
+                dy = cell_h - 4
+                cell.create_oval(dx - 2, dy - 2, dx + 2, dy + 2, fill=dot_color, outline="#000000")
 
             cell.bind("<Button-1>", lambda e, info=day_info: self._on_day_clicked(info))
             if not is_today and not is_selected:
@@ -1618,7 +1625,8 @@ class PersianClockWidget:
 
         self.detail_canvas.configure(bg=bg)
         self.detail_canvas.delete("all")
-        cw = self.calendar_w - 28
+        self.detail_canvas.update_idletasks()
+        cw = max(self.calendar_w - 24, self.detail_canvas.winfo_width())
 
         status_badge = " (تعطیل)" if info["is_holiday"] else ""
         header_text = format_digits(f"{info['date_text']}{status_badge}", use_fa)
