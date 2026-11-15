@@ -1,0 +1,657 @@
+# -*- coding: utf-8 -*-
+"""
+پنجره یکپارچه ابزارهای هوشمند برنامه‌نویسی، زمان‌بندی و اتصال به AI (نسخه ۲)
+شامل ۵ تب:
+1. مبدل Timestamp / ISO / شمسی + دیکدر آفلاین JWT + تولید GUID / ULID / NanoID
+2. دستیار Cron (توضیح فارسی + ۵ اجرای بعدی تهران و UTC)
+3. برنامه‌ریز جلسات تیمی (تهران ⇄ UTC / لندن / برلین / دبی / نیویورک)
+4. تایمر پومودورو + زمان‌بند اکشن سر ساعت (URL / Webhook / Command)
+5. سرور محلی AI (HTTP REST + MCP JSON-RPC) و کپی کانفیگ
+
+طراحی و توسعه: شایان بامیار (® Shayan Bamyar)
+"""
+
+from datetime import datetime, timedelta
+import json
+import tkinter as tk
+from tkinter import ttk
+
+try:
+    from src.calendar_data import TEHRAN_TZ, gregorian_to_jalali
+    from src.dev_tools import (
+        CRON_PRESETS,
+        convert_tehran_meeting_time,
+        decode_jwt_offline,
+        describe_cron_fa,
+        generate_guid,
+        generate_nanoid,
+        generate_ulid,
+        next_cron_runs,
+        parse_any_time_input,
+    )
+    from src.win_utils import apply_rounded_corners
+except ImportError:
+    from calendar_data import TEHRAN_TZ, gregorian_to_jalali
+    from dev_tools import (
+        CRON_PRESETS,
+        convert_tehran_meeting_time,
+        decode_jwt_offline,
+        describe_cron_fa,
+        generate_guid,
+        generate_nanoid,
+        generate_ulid,
+        next_cron_runs,
+        parse_any_time_input,
+    )
+    from win_utils import apply_rounded_corners
+
+
+class DevAiHubWindow:
+    """پنجره ابزارهای برنامه‌نویسی، زمان‌بندی هوشمند و اتصال به AI"""
+
+    def __init__(self, app):
+        self.app = app
+        self.root = app.root
+        self.win: tk.Toplevel | None = None
+        self._build()
+
+    def focus(self):
+        if self.win and self.win.winfo_exists():
+            self.win.deiconify()
+            self.win.lift()
+            self.win.focus_force()
+
+    def _copy(self, text: str, label: str = "متن"):
+        self.app._copy_to_clipboard(text, f"✓ {label} کپی شد!")
+
+    def _build(self):
+        win = tk.Toplevel(self.root)
+        self.win = win
+        win.title("ابزارهای هوشمند برنامه‌نویسی و AI (v2.0)")
+        win.overrideredirect(True)
+        win.configure(bg="#0B1120")
+        win.attributes("-topmost", True)
+
+        w, h = 540, 560
+        sx = (win.winfo_screenwidth() - w) // 2
+        sy = (win.winfo_screenheight() - h) // 2
+        win.geometry(f"{w}x{h}+{sx}+{sy}")
+        try:
+            apply_rounded_corners(win, w, h, radius=16, enabled=True)
+        except Exception:
+            pass
+
+        font_fa = self.app.config.get("font_family", "Vazir")
+        outer = tk.Frame(win, bg="#0B1120", highlightbackground="#334155", highlightthickness=1, padx=12, pady=10)
+        outer.pack(fill="both", expand=True)
+
+        # هدر پنجره + امکان درگ
+        hdr = tk.Frame(outer, bg="#0B1120")
+        hdr.pack(fill="x", pady=(0, 8))
+        title_lbl = tk.Label(
+            hdr,
+            text="⚡ ابزارهای هوشمند برنامه‌نویسی، زمان‌بندی و AI (v2.0)",
+            font=(font_fa, 10, "bold"),
+            fg="#38BDF8",
+            bg="#0B1120",
+        )
+        title_lbl.pack(side="right")
+
+        close_lbl = tk.Label(
+            hdr,
+            text="✕",
+            font=("Segoe UI", 10, "bold"),
+            fg="#94A3B8",
+            bg="#0B1120",
+            cursor="hand2",
+            padx=6,
+        )
+        close_lbl.pack(side="left")
+        close_lbl.bind("<Button-1>", lambda e: win.destroy())
+
+        drag_pos = {"x": 0, "y": 0}
+
+        def _d_start(e):
+            drag_pos["x"] = e.x_root - win.winfo_x()
+            drag_pos["y"] = e.y_root - win.winfo_y()
+
+        def _d_move(e):
+            win.geometry(f"{w}x{h}+{e.x_root - drag_pos['x']}+{e.y_root - drag_pos['y']}")
+
+        for dw in (hdr, title_lbl):
+            dw.bind("<ButtonPress-1>", _d_start)
+            dw.bind("<B1-Motion>", _d_move)
+
+        style = ttk.Style(win)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+        style.configure("DevHub.TNotebook", background="#0B1120", borderwidth=0)
+        style.configure(
+            "DevHub.TNotebook.Tab",
+            background="#1E293B",
+            foreground="#CBD5E1",
+            padding=(8, 5),
+            font=(font_fa, 8, "bold"),
+        )
+        style.map(
+            "DevHub.TNotebook.Tab",
+            background=[("selected", "#0284C7")],
+            foreground=[("selected", "#FFFFFF")],
+        )
+
+        nb = ttk.Notebook(outer, style="DevHub.TNotebook")
+        nb.pack(fill="both", expand=True)
+
+        t1 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+        t2 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+        t3 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+        t4 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+        t5 = tk.Frame(nb, bg="#0F172A", padx=10, pady=10)
+
+        nb.add(t1, text="🕒 Timestamp & JWT")
+        nb.add(t2, text="⚙ دستیار Cron")
+        nb.add(t3, text="🌍 جلسات")
+        nb.add(t4, text="⏱ پومودورو و اکشن")
+        nb.add(t5, text="🤖 اتصال به AI")
+
+        self._build_tab_converter_jwt(t1, font_fa)
+        self._build_tab_cron(t2, font_fa)
+        self._build_tab_meetings(t3, font_fa)
+        self._build_tab_pomodoro_actions(t4, font_fa)
+        self._build_tab_ai_mcp(t5, font_fa)
+
+    # ── تب ۱: مبدل Timestamp / ISO / شمسی + دیکدر آفلاین JWT + IDها ──
+    def _build_tab_converter_jwt(self, parent: tk.Frame, font_fa: str):
+        tk.Label(
+            parent,
+            text="تبدیل سریع Unix Timestamp (ثانیه/میلی‌ثانیه)، ISO-8601 یا تاریخ شمسی (مثلاً 1405/08/24 14:30):",
+            font=(font_fa, 8, "bold"),
+            fg="#E2E8F0",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 4))
+
+        row = tk.Frame(parent, bg="#0F172A")
+        row.pack(fill="x", pady=(0, 6))
+        ts_entry = tk.Entry(row, font=("Consolas", 9), bg="#1E293B", fg="#F8FAFC", insertbackground="#38BDF8", relief="flat")
+        ts_entry.pack(side="right", fill="x", expand=True, ipady=4, padx=(6, 0))
+        ts_entry.insert(0, str(int(datetime.now().timestamp())))
+
+        res_box = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1, padx=8, pady=6)
+        res_box.pack(fill="x", pady=(0, 8))
+        ts_labels: dict[str, tk.Label] = {}
+        for k, title in (
+            ("jalali", "شمسی (تهران):"),
+            ("tehran", "میلادی (تهران):"),
+            ("utc_iso", "UTC ISO:"),
+            ("unix_s", "Unix (ثانیه):"),
+            ("unix_ms", "Unix (میلی‌ثانیه):"),
+        ):
+            rf = tk.Frame(res_box, bg="#111827")
+            rf.pack(fill="x", pady=1)
+            tk.Label(rf, text=title, font=(font_fa, 8), fg="#94A3B8", bg="#111827").pack(side="right")
+            vl = tk.Label(rf, text="—", font=("Consolas", 8, "bold"), fg="#38BDF8", bg="#111827", cursor="hand2")
+            vl.pack(side="left")
+            vl.bind("<Button-1>", lambda e, lbl=vl: self._copy(lbl.cget("text"), "مقدار"))
+            ts_labels[k] = vl
+
+        def _convert_ts():
+            try:
+                out = parse_any_time_input(ts_entry.get())
+                for k, vl in ts_labels.items():
+                    vl.configure(text=out[k], fg="#38BDF8")
+            except Exception as exc:
+                ts_labels["jalali"].configure(text=f"خطا: {exc}", fg="#F87171")
+
+        tk.Button(
+            row,
+            text="تبدیل",
+            font=(font_fa, 8, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            relief="flat",
+            padx=10,
+            cursor="hand2",
+            command=_convert_ts,
+        ).pack(side="left")
+        _convert_ts()
+
+        # بخش تولید IDهای برنامه‌نویسی
+        id_row = tk.Frame(parent, bg="#0F172A")
+        id_row.pack(fill="x", pady=(0, 8))
+        for label, fn in (("GUID کپی", generate_guid), ("ULID کپی", generate_ulid), ("NanoID کپی", generate_nanoid)):
+            tk.Button(
+                id_row,
+                text=f"⚡ {label}",
+                font=(font_fa, 8, "bold"),
+                bg="#1E293B",
+                fg="#C4B5FD",
+                relief="flat",
+                pady=4,
+                cursor="hand2",
+                command=lambda f=fn, l=label: self._copy(f(), l),
+            ).pack(side="right", expand=True, fill="x", padx=2)
+
+        # دیکدر آفلاین JWT
+        tk.Label(
+            parent,
+            text="🔐 دیکدر آفلاین JWT (بررسی زمان انقضا به تاریخ شمسی):",
+            font=(font_fa, 8, "bold"),
+            fg="#FBBF24",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(4, 4))
+        jwt_row = tk.Frame(parent, bg="#0F172A")
+        jwt_row.pack(fill="x", pady=(0, 4))
+        jwt_entry = tk.Entry(jwt_row, font=("Consolas", 8), bg="#1E293B", fg="#F8FAFC", insertbackground="#FBBF24", relief="flat")
+        jwt_entry.pack(side="right", fill="x", expand=True, ipady=4, padx=(6, 0))
+
+        jwt_status = tk.Label(parent, text="توکن JWT را وارد کنید...", font=(font_fa, 8, "bold"), fg="#94A3B8", bg="#111827", pady=4)
+        jwt_status.pack(fill="x", pady=(0, 4))
+
+        jwt_out = tk.Text(parent, height=7, font=("Consolas", 8), bg="#111827", fg="#E2E8F0", bd=0, relief="flat")
+        jwt_out.pack(fill="both", expand=True)
+
+        def _decode_jwt():
+            try:
+                d = decode_jwt_offline(jwt_entry.get())
+                jwt_status.configure(
+                    text=f"{d['exp_status']}  |  exp: {d['exp_jalali']}  |  iat: {d['iat_jalali']}",
+                    fg="#F87171" if d["is_expired"] else "#34D399",
+                )
+                jwt_out.delete("1.0", tk.END)
+                jwt_out.insert("1.0", json.dumps(d["payload"], ensure_ascii=False, indent=2))
+            except Exception as exc:
+                jwt_status.configure(text=f"خطا: {exc}", fg="#F87171")
+
+        tk.Button(
+            jwt_row,
+            text="بررسی JWT",
+            font=(font_fa, 8, "bold"),
+            bg="#D97706",
+            fg="#FFFFFF",
+            relief="flat",
+            padx=8,
+            cursor="hand2",
+            command=_decode_jwt,
+        ).pack(side="left")
+
+    # ── تب ۲: دستیار Cron ──
+    def _build_tab_cron(self, parent: tk.Frame, font_fa: str):
+        tk.Label(
+            parent,
+            text="عبارت ۵ بخشی Cron (دقیقه ساعت روز ماه روزهفته):",
+            font=(font_fa, 8, "bold"),
+            fg="#E2E8F0",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 4))
+
+        top = tk.Frame(parent, bg="#0F172A")
+        top.pack(fill="x", pady=(0, 6))
+        cron_entry = tk.Entry(top, font=("Consolas", 10, "bold"), bg="#1E293B", fg="#38BDF8", insertbackground="#38BDF8", relief="flat")
+        cron_entry.pack(side="right", fill="x", expand=True, ipady=4, padx=(6, 0))
+        cron_entry.insert(0, "*/15 9-17 * * 1-5")
+
+        tz_var = tk.StringVar(value="tehran")
+        desc_lbl = tk.Label(parent, text="", font=(font_fa, 9, "bold"), fg="#A7F3D0", bg="#111827", pady=6, wraplength=480)
+        desc_lbl.pack(fill="x", pady=(0, 6))
+
+        runs_box = tk.Listbox(parent, height=7, font=("Consolas", 9), bg="#111827", fg="#E2E8F0", bd=0, highlightthickness=1, highlightbackground="#1F2937")
+        runs_box.pack(fill="both", expand=True, pady=(0, 8))
+
+        def _analyze_cron():
+            expr = cron_entry.get().strip()
+            desc_lbl.configure(text=describe_cron_fa(expr))
+            runs_box.delete(0, tk.END)
+            try:
+                runs = next_cron_runs(expr, count=5, tz_mode=tz_var.get())
+                if not runs:
+                    runs_box.insert(tk.END, "در ۳۶۶ روز آینده اجرایی یافت نشد")
+                for idx, r in enumerate(runs, 1):
+                    runs_box.insert(tk.END, f"{idx}. تهران: {r['tehran']}   |   {r['utc']}")
+            except Exception as exc:
+                runs_box.insert(tk.END, f"خطا: {exc}")
+
+        tk.Button(
+            top,
+            text="تحلیل و پیش‌بینی",
+            font=(font_fa, 8, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            relief="flat",
+            padx=8,
+            cursor="hand2",
+            command=_analyze_cron,
+        ).pack(side="left")
+
+        tz_row = tk.Frame(parent, bg="#0F172A")
+        tz_row.pack(fill="x", pady=(0, 6))
+        for val, lbl in (("tehran", "محاسبه بر اساس ساعت تهران"), ("utc", "محاسبه بر اساس UTC")):
+            tk.Radiobutton(
+                tz_row,
+                text=lbl,
+                variable=tz_var,
+                value=val,
+                command=_analyze_cron,
+                font=(font_fa, 8),
+                fg="#CBD5E1",
+                bg="#0F172A",
+                selectcolor="#1E293B",
+                activebackground="#0F172A",
+            ).pack(side="right", padx=6)
+
+        tk.Button(
+            tz_row,
+            text="📋 کپی Cron",
+            font=(font_fa, 8, "bold"),
+            bg="#059669",
+            fg="#FFFFFF",
+            relief="flat",
+            padx=8,
+            cursor="hand2",
+            command=lambda: self._copy(cron_entry.get().strip(), "عبارت Cron"),
+        ).pack(side="left")
+
+        pre_frame = tk.Frame(parent, bg="#0F172A")
+        pre_frame.pack(fill="x")
+        for title, expr in CRON_PRESETS:
+            def _pick(ex=expr):
+                cron_entry.delete(0, tk.END)
+                cron_entry.insert(0, ex)
+                _analyze_cron()
+            tk.Button(
+                pre_frame,
+                text=title,
+                font=(font_fa, 7, "bold"),
+                bg="#1E293B",
+                fg="#CBD5E1",
+                relief="flat",
+                padx=5,
+                pady=3,
+                cursor="hand2",
+                command=_pick,
+            ).pack(side="right", padx=2, pady=2)
+
+        _analyze_cron()
+
+    # ── تب ۳: برنامه‌ریز جلسات ──
+    def _build_tab_meetings(self, parent: tk.Frame, font_fa: str):
+        tk.Label(
+            parent,
+            text="انتخاب ساعت جلسه به وقت تهران برای مشاهده معادل آن در شهرهای تیم:",
+            font=(font_fa, 9, "bold"),
+            fg="#E2E8F0",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 8))
+
+        ctrl = tk.Frame(parent, bg="#0F172A")
+        ctrl.pack(fill="x", pady=(0, 10))
+        now_teh = datetime.now(TEHRAN_TZ)
+        h_var = tk.StringVar(value=f"{now_teh.hour:02d}")
+        m_var = tk.StringVar(value="00")
+
+        tk.Label(ctrl, text="ساعت تهران:", font=(font_fa, 9), fg="#94A3B8", bg="#0F172A").pack(side="right", padx=(0, 6))
+        sp_h = tk.Spinbox(ctrl, from_=0, to=23, textvariable=h_var, width=4, font=("Consolas", 10, "bold"), bg="#1E293B", fg="#F8FAFC", relief="flat")
+        sp_h.pack(side="right", padx=2)
+        tk.Label(ctrl, text=":", font=("Consolas", 10, "bold"), fg="#F8FAFC", bg="#0F172A").pack(side="right")
+        sp_m = tk.Spinbox(ctrl, from_=0, to=59, increment=15, textvariable=m_var, width=4, font=("Consolas", 10, "bold"), bg="#1E293B", fg="#F8FAFC", relief="flat")
+        sp_m.pack(side="right", padx=2)
+
+        list_frame = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1, padx=10, pady=8)
+        list_frame.pack(fill="both", expand=True, pady=(0, 10))
+        row_labels: list[tuple[tk.Label, tk.Label]] = []
+        for _ in range(7):
+            rf = tk.Frame(list_frame, bg="#111827")
+            rf.pack(fill="x", pady=4)
+            c_lbl = tk.Label(rf, text="", font=(font_fa, 9, "bold"), fg="#CBD5E1", bg="#111827", anchor="e")
+            c_lbl.pack(side="right")
+            t_lbl = tk.Label(rf, text="", font=("Consolas", 10, "bold"), fg="#38BDF8", bg="#111827", anchor="w")
+            t_lbl.pack(side="left")
+            row_labels.append((c_lbl, t_lbl))
+
+        last_rows: list[dict] = []
+
+        def _update_meetings(*_):
+            try:
+                hh = int(h_var.get())
+                mm = int(m_var.get())
+            except Exception:
+                return
+            rows = convert_tehran_meeting_time(hh, mm)
+            last_rows.clear()
+            last_rows.extend(rows)
+            for (c_lbl, t_lbl), item in zip(row_labels, rows):
+                c_lbl.configure(text=item["city"])
+                t_lbl.configure(text=f"{item['time']}  ({item['date']})")
+
+        for b_text, cmd in (("محاسبه", _update_meetings),):
+            tk.Button(ctrl, text=b_text, font=(font_fa, 8, "bold"), bg="#0284C7", fg="#FFFFFF", relief="flat", padx=10, cursor="hand2", command=cmd).pack(side="left", padx=4)
+
+        def _copy_invite():
+            lines = ["🕒 زمان جلسه پیشنهادی:"]
+            for item in last_rows:
+                lines.append(f"• {item['city']}: {item['time']} ({item['date']})")
+            self._copy("\n".join(lines), "متن دعوت‌نامه جلسه")
+
+        tk.Button(
+            parent,
+            text="📋 کپی متن آماده دعوت‌نامه جلسه",
+            font=(font_fa, 9, "bold"),
+            bg="#059669",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=6,
+            cursor="hand2",
+            command=_copy_invite,
+        ).pack(fill="x")
+        _update_meetings()
+
+    # ── تب ۴: پومودورو و زمان‌بند اکشن سر ساعت ──
+    def _build_tab_pomodoro_actions(self, parent: tk.Frame, font_fa: str):
+        tk.Label(
+            parent,
+            text="⏱ تایمر تمرکز (Deep Work / پومودورو):",
+            font=(font_fa, 9, "bold"),
+            fg="#38BDF8",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 6))
+
+        p_row = tk.Frame(parent, bg="#0F172A")
+        p_row.pack(fill="x", pady=(0, 12))
+        for mins, lbl, bgc in (
+            (25, "۲۵ دقیقه کار", "#059669"),
+            (5, "۵ دقیقه استراحت", "#0284C7"),
+            (45, "۴۵ دقیقه عمیق", "#7C3AED"),
+        ):
+            tk.Button(
+                p_row,
+                text=lbl,
+                font=(font_fa, 8, "bold"),
+                bg=bgc,
+                fg="#FFFFFF",
+                relief="flat",
+                pady=5,
+                cursor="hand2",
+                command=lambda m=mins, l=lbl: self.app.start_pomodoro_timer(m, l),
+            ).pack(side="right", expand=True, fill="x", padx=2)
+        tk.Button(
+            p_row,
+            text="توقف",
+            font=(font_fa, 8, "bold"),
+            bg="#991B1B",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=5,
+            cursor="hand2",
+            command=self.app.stop_pomodoro_timer,
+        ).pack(side="right", padx=2)
+
+        tk.Frame(parent, bg="#1E293B", height=1).pack(fill="x", pady=(0, 10))
+
+        tk.Label(
+            parent,
+            text="⚡ زمان‌بند اکشن سر ساعت (باز کردن لینک، Webhook یا اجرای دستور):",
+            font=(font_fa, 9, "bold"),
+            fg="#FBBF24",
+            bg="#0F172A",
+            anchor="e",
+        ).pack(fill="x", pady=(0, 6))
+
+        form = tk.Frame(parent, bg="#111827", highlightbackground="#1F2937", highlightthickness=1, padx=10, pady=8)
+        form.pack(fill="x", pady=(0, 8))
+
+        def _mk_row(lbl_txt: str):
+            f = tk.Frame(form, bg="#111827")
+            f.pack(fill="x", pady=3)
+            tk.Label(f, text=lbl_txt, font=(font_fa, 8), fg="#94A3B8", bg="#111827", width=15, anchor="e").pack(side="right")
+            e = tk.Entry(f, font=("Consolas", 9), bg="#1E293B", fg="#F8FAFC", insertbackground="#38BDF8", relief="flat")
+            e.pack(side="right", fill="x", expand=True, ipady=3, padx=(0, 6))
+            return e
+
+        e_title = _mk_row("عنوان:")
+        e_title.insert(0, "اجرای خودکار")
+        e_mins = _mk_row("چند دقیقه دیگر:")
+        e_mins.insert(0, "10")
+
+        type_var = tk.StringVar(value="url")
+        tf = tk.Frame(form, bg="#111827")
+        tf.pack(fill="x", pady=3)
+        tk.Label(tf, text="نوع اکشن:", font=(font_fa, 8), fg="#94A3B8", bg="#111827", width=15, anchor="e").pack(side="right")
+        for val, lbl in (("url", "باز کردن لینک"), ("webhook", "POST Webhook"), ("command", "دستور سیستم")):
+            tk.Radiobutton(
+                tf,
+                text=lbl,
+                variable=type_var,
+                value=val,
+                font=(font_fa, 8),
+                fg="#CBD5E1",
+                bg="#111827",
+                selectcolor="#1E293B",
+                activebackground="#111827",
+            ).pack(side="right", padx=4)
+
+        e_target = _mk_row("لینک / دستور:")
+        e_target.insert(0, "https://")
+
+        def _schedule_action():
+            try:
+                mins = max(1, int(e_mins.get().strip()))
+            except Exception:
+                mins = 5
+            target_dt = datetime.now(TEHRAN_TZ) + timedelta(minutes=mins)
+            jy, jm, jd = gregorian_to_jalali(target_dt.year, target_dt.month, target_dt.day)
+            j_date = f"{jy:04d}/{jm:02d}/{jd:02d}"
+            self.app.alarm_store.add_alarm(
+                title=e_title.get().strip() or "اکشن زمان‌بندی‌شده",
+                hour=target_dt.hour,
+                minute=target_dt.minute,
+                repeat="once",
+                dates=[j_date],
+                play_sound=True,
+                message=f"اکشن {type_var.get()}: {e_target.get().strip()}",
+                action_type=type_var.get(),
+                action_target=e_target.get().strip(),
+            )
+            self.app._refresh_display()
+            self.app._show_toast(f"✓ اکشن برای {target_dt.strftime('%H:%M')} ثبت شد")
+
+        tk.Button(
+            parent,
+            text="✓ ثبت اکشن زمان‌بندی‌شده",
+            font=(font_fa, 9, "bold"),
+            bg="#D97706",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=6,
+            cursor="hand2",
+            command=_schedule_action,
+        ).pack(fill="x")
+
+    # ── تب ۵: سرور محلی AI (HTTP REST + MCP) ──
+    def _build_tab_ai_mcp(self, parent: tk.Frame, font_fa: str):
+        api = getattr(self.app, "local_api", None)
+        port = int(self.app.config.get("ai_api_port", 17845))
+        is_on = bool(api and api.running)
+
+        st_lbl = tk.Label(
+            parent,
+            text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{port}" if is_on else "🔴 سرور محلی AI متوقف است",
+            font=(font_fa, 9, "bold"),
+            fg="#6EE7B7" if is_on else "#FCA5A5",
+            bg="#064E3B" if is_on else "#450A0A",
+            pady=6,
+        )
+        st_lbl.pack(fill="x", pady=(0, 8))
+
+        def _toggle_srv():
+            if not api:
+                return
+            if api.running:
+                api.stop()
+                self.app.config["ai_api_enabled"] = False
+            else:
+                api.start()
+                self.app.config["ai_api_enabled"] = True
+            self.app._save_config()
+            now_on = api.running
+            st_lbl.configure(
+                text=f"🟢 سرور محلی AI فعال است: http://127.0.0.1:{port}" if now_on else "🔴 سرور محلی AI متوقف است",
+                fg="#6EE7B7" if now_on else "#FCA5A5",
+                bg="#064E3B" if now_on else "#450A0A",
+            )
+
+        tk.Button(
+            parent,
+            text="روشن / خاموش کردن سرور محلی AI",
+            font=(font_fa, 8, "bold"),
+            bg="#1E293B",
+            fg="#38BDF8",
+            relief="flat",
+            pady=5,
+            cursor="hand2",
+            command=_toggle_srv,
+        ).pack(fill="x", pady=(0, 8))
+
+        info_txt = tk.Text(parent, height=11, font=("Consolas", 8), bg="#111827", fg="#E2E8F0", bd=0, padx=8, pady=6)
+        info_txt.pack(fill="both", expand=True, pady=(0, 8))
+
+        mcp_snippet = json.dumps(
+            {
+                "mcpServers": {
+                    "persian-clock-widget": {
+                        "url": f"http://127.0.0.1:{port}/mcp",
+                    }
+                }
+            },
+            indent=2,
+        )
+        endpoints_doc = (
+            f"REST Endpoints (127.0.0.1:{port}):\n"
+            f"  GET  /health  -> وضعیت سرور\n"
+            f"  GET  /now     -> ساعت تهران، تاریخ شمسی، UTC، تعطیلی\n"
+            f"  GET  /ip      -> وضعیت IP، شهر، قفل و تاریخچه ۳ روزه\n"
+            f"  GET  /alarms  -> لیست آلارم‌ها و رویدادها\n"
+            f"  POST /alarms  -> ثبت یادآور/اکشن (in_minutes یا jalali_date)\n"
+            f"  POST /timer   -> شروع تایمر پومودورو\n"
+            f"  POST /mcp     -> MCP JSON-RPC 2.0 (tools/list, tools/call)\n\n"
+            f"MCP Config:\n{mcp_snippet}"
+        )
+        info_txt.insert("1.0", endpoints_doc)
+        info_txt.configure(state="disabled")
+
+        tk.Button(
+            parent,
+            text="📋 کپی کانفیگ MCP برای Claude / Antigravity / Cursor",
+            font=(font_fa, 9, "bold"),
+            bg="#7C3AED",
+            fg="#FFFFFF",
+            relief="flat",
+            pady=6,
+            cursor="hand2",
+            command=lambda: self._copy(mcp_snippet, "کانفیگ MCP"),
+        ).pack(fill="x")
