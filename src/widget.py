@@ -4072,16 +4072,24 @@ class PersianClockWidget:
             hist_cnt_lbl.configure(
                 text=f"📜 تغییرات ۳ روز اخیر: {chg_count} بار ({len(entries)} موقعیت ثبت‌شده)"
             )
-            hist_box.delete(0, tk.END)
+            hist_box.configure(state="normal")
+            hist_box.delete("1.0", tk.END)
             if not entries:
-                hist_box.insert(tk.END, "هنوز تغییری ثبت نشده است")
+                hist_box.insert(tk.END, "هنوز تغییری ثبت نشده است", "meta")
             else:
-                for item in entries:
+                for idx, item in enumerate(entries):
                     dt = f"{item.get('jalali_date', '')} {item.get('time_str', '')}".strip()
                     city = item.get("city") or "—"
                     ctry = item.get("country") or item.get("country_code") or "—"
                     ip_s = item.get("ip") or "—"
-                    hist_box.insert(tk.END, f"{dt}  |  {city}, {ctry}  |  {ip_s}")
+                    isp = (item.get("isp") or "").strip()
+                    isp_part = f"  •  {isp}" if isp else ""
+                    hist_box.insert(tk.END, f"🌐 {ip_s}", "ip")
+                    hist_box.insert(tk.END, f"   —   {city}, {ctry}\n", "loc")
+                    hist_box.insert(tk.END, f"   🕒 {dt}{isp_part}\n", "meta")
+                    if idx < len(entries) - 1:
+                        hist_box.insert(tk.END, "────────────────────────────────────────\n", "sep")
+            hist_box.configure(state="disabled")
 
     def open_ip_monitor_window(self):
         if self.ip_win and self.ip_win.winfo_exists():
@@ -4096,7 +4104,7 @@ class PersianClockWidget:
         win.overrideredirect(True)
         win.configure(bg="#0B1120")
         win.attributes("-topmost", True)
-        w, h = 410, 575
+        w, h = 480, 620
         sx = (win.winfo_screenwidth() - w) // 2
         sy = (win.winfo_screenheight() - h) // 2
         win.geometry(f"{w}x{h}+{sx}+{sy}")
@@ -4301,21 +4309,29 @@ class PersianClockWidget:
         hist_frame = tk.Frame(outer, bg="#111827", highlightbackground="#1F2937", highlightthickness=1)
         hist_frame.pack(fill="both", expand=True)
         hist_scroll = tk.Scrollbar(hist_frame, orient="vertical")
-        hist_box = tk.Listbox(
+        hist_box = tk.Text(
             hist_frame,
             yscrollcommand=hist_scroll.set,
-            font=("Consolas", 8),
+            font=("Consolas", 9),
+            wrap="word",
             bg="#111827",
             fg="#E2E8F0",
             selectbackground="#1E3A5F",
             selectforeground="#FFFFFF",
             bd=0,
             highlightthickness=0,
-            activestyle="none",
+            padx=6,
+            pady=6,
+            state="disabled",
+            cursor="arrow",
         )
+        hist_box.tag_configure("ip", foreground="#38BDF8", font=("Consolas", 9, "bold"))
+        hist_box.tag_configure("loc", foreground="#F8FAFC", font=(font_fa, 8))
+        hist_box.tag_configure("meta", foreground="#94A3B8", font=("Consolas", 8))
+        hist_box.tag_configure("sep", foreground="#1E293B", font=("Consolas", 7))
         hist_scroll.config(command=hist_box.yview)
         hist_scroll.pack(side="left", fill="y")
-        hist_box.pack(side="right", fill="both", expand=True, padx=4, pady=4)
+        hist_box.pack(side="right", fill="both", expand=True, padx=2, pady=2)
         self._ip_win_labels["hist_count"] = hist_cnt_lbl
         self._ip_win_labels["hist_list"] = hist_box
 
