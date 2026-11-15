@@ -272,7 +272,7 @@ class HoverTooltip:
 
 
 class PersianClockWidget:
-    BASE_MIN_W = 290
+    BASE_MIN_W = 250
     BASE_CALENDAR_W = 310
     BASE_CALENDAR_H = 385
 
@@ -605,18 +605,37 @@ class PersianClockWidget:
         )
         self.canvas.pack(fill="both", expand=True)
 
+        self._toolbar_seps: list[tk.Widget] = []
+
+        # نوار کوچک کنترل پنجره در بالا-چپ (کنار دکمه قفل) تا عرض ویجت کشیده نشود
+        self.win_controls_container = tk.Frame(
+            self.canvas,
+            bg="#161E2E",
+            highlightbackground="#2A364F",
+            highlightthickness=1,
+            padx=2,
+            pady=1,
+        )
+
+        # داک فشرده و دو ردیفه ابزارها در پایین ویجت (ردیف اول: تقویم و رویدادها | ردیف دوم: ابزارهای زمان و کدنویسی)
         self.btn_container = tk.Frame(
             self.canvas,
             bg="#161E2E",
             highlightbackground="#2A364F",
             highlightthickness=1,
-            padx=3,
-            pady=2,
+            padx=5,
+            pady=3,
         )
+        self._dock_row1 = tk.Frame(self.btn_container, bg="#161E2E")
+        self._dock_row1.pack(side="top", fill="x")
+        self._dock_hdiv = tk.Frame(self.btn_container, bg="#243047", height=1)
+        self._dock_hdiv.pack(side="top", fill="x", padx=2, pady=2)
+        self._dock_row2 = tk.Frame(self.btn_container, bg="#161E2E")
+        self._dock_row2.pack(side="top", fill="x")
 
-        def _add_tb_sep():
+        def _add_tb_sep(parent):
             sep = tk.Label(
-                self.btn_container,
+                parent,
                 text="│",
                 font=("Segoe UI", 8),
                 fg="#2D3B55",
@@ -624,10 +643,12 @@ class PersianClockWidget:
                 padx=1,
             )
             sep.pack(side="left")
+            self._toolbar_seps.append(sep)
 
+        # ── ردیف اول داک: تقویم و رویدادها ──
         # ۱. دکمه باز/بسته کردن تقویم (Extend)
         self.extend_btn = tk.Label(
-            self.btn_container,
+            self._dock_row1,
             text="📅 تقویم",
             font=(self.config["font_family"], 8, "bold"),
             fg=self.config["accent_color"],
@@ -636,7 +657,7 @@ class PersianClockWidget:
             pady=2,
             cursor="hand2",
         )
-        self.extend_btn.pack(side="left", padx=(0, 2))
+        self.extend_btn.pack(side="left", expand=True, fill="x", padx=(0, 1))
         self.extend_btn.bind("<Button-1>", self._toggle_calendar)
         self._attach_hover(
             self.extend_btn,
@@ -645,20 +666,64 @@ class PersianClockWidget:
             hover_bg="#0284C7",
             hover_fg="#FFFFFF",
         )
-        _add_tb_sep()
+        _add_tb_sep(self._dock_row1)
 
-        # ۲. دکمه کپی ۱۰ فرمت زمان برنامه‌نویسی برای API + GUID
+        # ۲. دکمه مدیریت رویدادها و آلارم‌ها
+        self.alarm_btn = tk.Label(
+            self._dock_row1,
+            text="⏰ رویداد",
+            font=(self.config["font_family"], 8, "bold"),
+            fg="#FBBF24",
+            bg="#161E2E",
+            padx=6,
+            pady=2,
+            cursor="hand2",
+        )
+        self.alarm_btn.pack(side="left", expand=True, fill="x", padx=(1, 1))
+        self.alarm_btn.bind("<Button-1>", lambda e: (self.open_alarm_manager(), "break")[1])
+        self._attach_hover(
+            self.alarm_btn,
+            "مدیریت رویدادها و آلارم‌ها (تقویم چندانتخابی)",
+            base_fg_fn=lambda: "#FBBF24",
+            hover_bg="#D97706",
+            hover_fg="#FFFFFF",
+        )
+        _add_tb_sep(self._dock_row1)
+
+        # ۳. دکمه سریع مدیریت مناسبت‌های شخصی و تولدها
+        self.occ_btn = tk.Label(
+            self._dock_row1,
+            text="🎂 تولد",
+            font=(self.config["font_family"], 8, "bold"),
+            fg="#F472B6",
+            bg="#161E2E",
+            padx=6,
+            pady=2,
+            cursor="hand2",
+        )
+        self.occ_btn.pack(side="left", expand=True, fill="x", padx=(1, 0))
+        self.occ_btn.bind("<Button-1>", lambda e: (self.open_custom_occasions_manager(), "break")[1])
+        self._attach_hover(
+            self.occ_btn,
+            "ثبت تولد دوستان و مناسبت‌های شخصی + آلارم روز قبل",
+            base_fg_fn=lambda: "#F472B6",
+            hover_bg="#DB2777",
+            hover_fg="#FFFFFF",
+        )
+
+        # ── ردیف دوم داک: ابزارهای زمان و برنامه‌نویسی ──
+        # ۴. دکمه کپی ۱۰ فرمت زمان برنامه‌نویسی برای API + GUID
         self.copy_time_btn = tk.Label(
-            self.btn_container,
-            text="📋",
-            font=("Segoe UI Emoji", 8),
+            self._dock_row2,
+            text="📋 کپی زمان",
+            font=(self.config["font_family"], 8, "bold"),
             fg="#A7F3D0",
             bg="#161E2E",
             padx=5,
             pady=2,
             cursor="hand2",
         )
-        self.copy_time_btn.pack(side="left", padx=(1, 1))
+        self.copy_time_btn.pack(side="left", expand=True, fill="x", padx=(0, 1))
         self.copy_time_btn.bind("<Button-1>", self._toggle_dev_popup_window)
         self._attach_hover(
             self.copy_time_btn,
@@ -667,19 +732,20 @@ class PersianClockWidget:
             hover_bg="#059669",
             hover_fg="#FFFFFF",
         )
+        _add_tb_sep(self._dock_row2)
 
-        # ۳. دکمه اختصاصی رندر و کپی سریع GUID (UUID v4)
+        # ۵. دکمه اختصاصی رندر و کپی سریع GUID (UUID v4)
         self.guid_btn = tk.Label(
-            self.btn_container,
+            self._dock_row2,
             text="GUID",
             font=("Consolas", 8, "bold"),
             fg="#C4B5FD",
             bg="#161E2E",
-            padx=5,
+            padx=6,
             pady=2,
             cursor="hand2",
         )
-        self.guid_btn.pack(side="left", padx=(1, 1))
+        self.guid_btn.pack(side="left", expand=True, fill="x", padx=(1, 1))
         self.guid_btn.bind("<Button-1>", self._quick_copy_guid)
         self.guid_btn.bind("<Button-3>", self._toggle_dev_popup_window)
         self._attach_hover(
@@ -689,12 +755,13 @@ class PersianClockWidget:
             hover_bg="#7C3AED",
             hover_fg="#FFFFFF",
         )
+        _add_tb_sep(self._dock_row2)
 
-        # ۳.۵. دکمه سوییچ سریع تایم‌زون اصلی بین تهران و UTC (بدون نمایش +03:30)
+        # ۶. دکمه سوییچ سریع تایم‌زون اصلی بین تهران و UTC (بدون نمایش +03:30)
         is_utc_primary = self.config.get("primary_timezone", "tehran") == "utc"
         self.tz_btn = tk.Label(
-            self.btn_container,
-            text="UTC" if is_utc_primary else "TEH",
+            self._dock_row2,
+            text="🌐 UTC" if is_utc_primary else "🌐 TEH",
             font=("Consolas", 8, "bold"),
             fg="#38BDF8" if is_utc_primary else "#E2E8F0",
             bg="#161E2E",
@@ -702,7 +769,7 @@ class PersianClockWidget:
             pady=2,
             cursor="hand2",
         )
-        self.tz_btn.pack(side="left", padx=(1, 2))
+        self.tz_btn.pack(side="left", expand=True, fill="x", padx=(1, 0))
         self.tz_btn.bind("<Button-1>", self._toggle_primary_timezone)
         self._attach_hover(
             self.tz_btn,
@@ -711,63 +778,20 @@ class PersianClockWidget:
             hover_bg="#0284C7",
             hover_fg="#FFFFFF",
         )
-        _add_tb_sep()
 
-        # ۴. دکمه مدیریت رویدادها و آلارم‌ها
-        self.alarm_btn = tk.Label(
-            self.btn_container,
-            text="⏰",
-            font=("Segoe UI Emoji", 8),
-            fg="#FBBF24",
-            bg="#161E2E",
-            padx=5,
-            pady=2,
-            cursor="hand2",
-        )
-        self.alarm_btn.pack(side="left", padx=(1, 1))
-        self.alarm_btn.bind("<Button-1>", lambda e: (self.open_alarm_manager(), "break")[1])
-        self._attach_hover(
-            self.alarm_btn,
-            "مدیریت رویدادها و آلارم‌ها (تقویم چندانتخابی)",
-            base_fg_fn=lambda: "#FBBF24",
-            hover_bg="#D97706",
-            hover_fg="#FFFFFF",
-        )
-
-        # ۴.۵. دکمه سریع مدیریت مناسبت‌های شخصی و تولدها
-        self.occ_btn = tk.Label(
-            self.btn_container,
-            text="🎂",
-            font=("Segoe UI Emoji", 8),
-            fg="#F472B6",
-            bg="#161E2E",
-            padx=5,
-            pady=2,
-            cursor="hand2",
-        )
-        self.occ_btn.pack(side="left", padx=(1, 2))
-        self.occ_btn.bind("<Button-1>", lambda e: (self.open_custom_occasions_manager(), "break")[1])
-        self._attach_hover(
-            self.occ_btn,
-            "ثبت تولد دوستان و مناسبت‌های شخصی + آلارم روز قبل",
-            base_fg_fn=lambda: "#F472B6",
-            hover_bg="#DB2777",
-            hover_fg="#FFFFFF",
-        )
-        _add_tb_sep()
-
-        # ۵. دکمه تنظیمات ظاهری
+        # ── نوار کنترل پنجره بالا-چپ (تنظیمات، مینیمایز، بستن) ──
+        # ۷. دکمه تنظیمات ظاهری
         self.settings_btn = tk.Label(
-            self.btn_container,
+            self.win_controls_container,
             text="⚙",
             font=("Segoe UI", 8),
             fg=self.config["date_color"],
             bg="#161E2E",
-            padx=5,
-            pady=2,
+            padx=4,
+            pady=1,
             cursor="hand2",
         )
-        self.settings_btn.pack(side="left", padx=(1, 1))
+        self.settings_btn.pack(side="left", padx=(0, 1))
         self.settings_btn.bind("<Button-1>", lambda e: (self.open_settings_window(), "break")[1])
         self._attach_hover(
             self.settings_btn,
@@ -777,15 +801,15 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
-        # ۶. دکمه مینیمایز و بستن به Hidden Icons (بدون آیکون در تسک‌بار)
+        # ۸. دکمه مینیمایز و بستن به Hidden Icons (بدون آیکون در تسک‌بار)
         self.min_btn = tk.Label(
-            self.btn_container,
+            self.win_controls_container,
             text="🗕",
             font=("Segoe UI", 8, "bold"),
             fg=self.config["date_color"],
             bg="#161E2E",
-            padx=5,
-            pady=2,
+            padx=4,
+            pady=1,
             cursor="hand2",
         )
         self.min_btn.pack(side="left", padx=(1, 1))
@@ -798,15 +822,15 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
-        # ۷. دکمه بستن ویجت (انتقال به Hidden Icons؛ برای خروج کامل از راست‌کلیک سینی سیستم استفاده کنید)
+        # ۹. دکمه بستن ویجت (انتقال به Hidden Icons؛ برای خروج کامل از راست‌کلیک سینی سیستم استفاده کنید)
         self.close_btn = tk.Label(
-            self.btn_container,
+            self.win_controls_container,
             text="✕",
             font=("Segoe UI", 8, "bold"),
             fg="#FCA5A5",
             bg="#161E2E",
-            padx=5,
-            pady=2,
+            padx=4,
+            pady=1,
             cursor="hand2",
         )
         self.close_btn.pack(side="left", padx=(1, 0))
@@ -819,12 +843,19 @@ class PersianClockWidget:
             hover_fg="#FFFFFF",
         )
 
-        # ایجاد یک‌باره پنجره نوار ابزار روی Canvas تا در رفرش ثانیه‌ای حذف نشود و Hover پایدار بماند
+        # ایجاد یک‌باره پنجره‌های نوار کنترل و داک روی Canvas تا در رفرش ثانیه‌ای حذف نشوند و Hover پایدار بماند
         toolbar_x = self.LOCK_OFFSET_X + self.LOCK_BTN_SIZE + 8
         toolbar_y = self.LOCK_OFFSET_Y
-        self._toolbar_win_id = self.canvas.create_window(
+        self._win_controls_win_id = self.canvas.create_window(
             toolbar_x,
             toolbar_y,
+            window=self.win_controls_container,
+            anchor="nw",
+            tags="toolbar",
+        )
+        self._toolbar_win_id = self.canvas.create_window(
+            12,
+            100,
             window=self.btn_container,
             anchor="nw",
             tags="toolbar",
@@ -850,7 +881,7 @@ class PersianClockWidget:
         if hasattr(self, "tz_btn") and self.tz_btn.winfo_exists():
             is_utc = self.config.get("primary_timezone", "tehran") == "utc"
             self.tz_btn.configure(
-                text="UTC" if is_utc else "TEH",
+                text="🌐 UTC" if is_utc else "🌐 TEH",
                 fg="#38BDF8" if is_utc else "#E2E8F0",
                 bg=self._get_btn_base_bg(),
             )
@@ -2222,11 +2253,25 @@ class PersianClockWidget:
         )
         self.canvas.configure(bg=bg)
         dock_bg = "#161E2E" if not transparent_bg else bg
+        dock_border = "#2A364F" if not transparent_bg else bg
+        if hasattr(self, "win_controls_container"):
+            self.win_controls_container.configure(
+                bg=dock_bg,
+                highlightbackground=dock_border,
+                highlightthickness=0 if transparent_bg else 1,
+            )
         self.btn_container.configure(
             bg=dock_bg,
-            highlightbackground="#2A364F" if not transparent_bg else bg,
+            highlightbackground=dock_border,
             highlightthickness=0 if transparent_bg else 1,
         )
+        for sub_f in (getattr(self, "_dock_row1", None), getattr(self, "_dock_row2", None)):
+            if sub_f is not None:
+                sub_f.configure(bg=dock_bg)
+        if hasattr(self, "_dock_hdiv"):
+            self._dock_hdiv.configure(bg="#243047" if not transparent_bg else bg)
+        for sep in getattr(self, "_toolbar_seps", []):
+            sep.configure(bg=dock_bg)
 
         btn_bg = self._get_btn_base_bg()
         font_fa = self.config.get("font_family", "Vazir")
@@ -2239,11 +2284,11 @@ class PersianClockWidget:
             fg=self.config.get("accent_color", "#38BDF8"),
             font=(font_fa, 8, "bold"),
         )
-        self.copy_time_btn.configure(bg=btn_bg, fg="#A7F3D0")
+        self.copy_time_btn.configure(bg=btn_bg, fg="#A7F3D0", font=(font_fa, 8, "bold"))
         self.guid_btn.configure(bg=btn_bg, fg="#C4B5FD")
-        self.alarm_btn.configure(bg=btn_bg, fg="#FBBF24")
+        self.alarm_btn.configure(bg=btn_bg, fg="#FBBF24", font=(font_fa, 8, "bold"))
         if hasattr(self, "occ_btn"):
-            self.occ_btn.configure(bg=btn_bg, fg="#F472B6")
+            self.occ_btn.configure(bg=btn_bg, fg="#F472B6", font=(font_fa, 8, "bold"))
         self.settings_btn.configure(
             bg=btn_bg,
             fg=self.config.get("date_color", "#CBD5E1"),
@@ -3407,14 +3452,17 @@ class PersianClockWidget:
 
         toolbar_x = self.LOCK_OFFSET_X + self.LOCK_BTN_SIZE + 8
         toolbar_y = self.LOCK_OFFSET_Y
-        # فضای نوار ابزار همیشه رزرو می‌شود (چه قفل چه باز) تا ابعاد و مکان ویجت
-        # بعد از قفل/باز کردن هیچ تغییری نکند و ویجت روی صفحه جابه‌جا نشود
-        self.canvas.coords(self._toolbar_win_id, toolbar_x, toolbar_y)
+        self.canvas.coords(self._win_controls_win_id, toolbar_x, toolbar_y)
+        self.win_controls_container.update_idletasks()
         self.btn_container.update_idletasks()
-        toolbar_right = toolbar_x + self.btn_container.winfo_reqwidth()
+        win_ctrl_right = toolbar_x + self.win_controls_container.winfo_reqwidth()
+        dock_w = self.btn_container.winfo_reqwidth()
+        dock_h = self.btn_container.winfo_reqheight()
         if not is_locked:
+            self.canvas.itemconfigure(self._win_controls_win_id, state="normal")
             self.canvas.itemconfigure(self._toolbar_win_id, state="normal")
         else:
+            self.canvas.itemconfigure(self._win_controls_win_id, state="hidden")
             self.canvas.itemconfigure(self._toolbar_win_id, state="hidden")
 
         primary_tz = self.config.get("primary_timezone", "tehran")
@@ -3488,8 +3536,8 @@ class PersianClockWidget:
             body_needed_w = max(date_w, utc_w, occ_w) + 24
             target_w = max(top_needed_w, body_needed_w, int(130 * scale))
         else:
-            top_needed_w = toolbar_right + time_w + 38
-            body_needed_w = max(date_w, utc_w, occ_w) + 32
+            top_needed_w = win_ctrl_right + time_w + 26
+            body_needed_w = max(date_w, utc_w, occ_w, dock_w) + 28
             target_w = max(int(self.BASE_MIN_W * scale), top_needed_w, body_needed_w)
 
         right_x = target_w - 14
@@ -3579,6 +3627,12 @@ class PersianClockWidget:
                 tags="drawn_text",
             )
             cur_y += occ_h + 4
+
+        if not is_locked:
+            cur_y += 4
+            dock_x = max(10, (target_w - dock_w) // 2)
+            self.canvas.coords(self._toolbar_win_id, dock_x, cur_y)
+            cur_y += dock_h + 4
 
         footer_y = cur_y + 2
         if self._toast_text:
