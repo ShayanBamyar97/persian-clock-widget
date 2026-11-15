@@ -5,7 +5,7 @@
 # ویجت حرفه‌ای ساعت تهران، تقویم شمسی و سیستم یادآور ویندوز
 ### **Persian Clock, Jalali Calendar & Smart Alarm Desktop Widget**
 
-[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6?style=for-the-badge)](#)
 [![Version](https://img.shields.io/badge/Version-2.0.0-7C3AED?style=for-the-badge)](https://github.com/ShayanBamyar97/persian-clock-widget/releases/tag/v2.0.0)
 [![npm](https://img.shields.io/npm/v/persian-clock-widget?style=for-the-badge&logo=npm&color=CB3837)](https://www.npmjs.com/package/persian-clock-widget)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](#)
@@ -117,29 +117,85 @@ persian-clock-widget/
 
 ---
 
-## 🚀 نحوه دانلود و اجرای سریع (بدون نیاز به پایتون)
+## 🚀 راهنمای نصب و اجرا در تمام سیستم‌عامل‌ها (Windows / Linux / macOS)
 
-### ۱. دانلود از GitHub Releases (پیشنهادی)
-1. وارد صفحه **[Releases در گیت‌هاب](https://github.com/ShayanBamyar97/persian-clock-widget/releases)** (یا پوشه [`release/windows/v2/`](release/windows/v2/)) شوید.
-2. فایل **`PersianClockWidget.exe`** (یا `PersianClockWidget.zip`) را دانلود و اجرا کنید؛ تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل خود فایل `.exe` قرار دارند.
-3. ویجت در گوشه بالا-راست مانیتور ظاهر می‌شود و آیکون آن در بخش **Hidden Icons (کنار ساعت ویندوز)** قرار می‌گیرد.
+### 🪟 ۱. ویندوز (Windows 10 / 11)
+**روش الف — فایل اجرایی آماده (بدون نیاز به پایتون یا Node.js):**
+1. از صفحه **[Releases در گیت‌هاب](https://github.com/ShayanBamyar97/persian-clock-widget/releases)** (یا پوشه [`release/windows/v2/`](release/windows/v2/)) فایل **`PersianClockWidget.exe`** یا **`PersianClockWidget.zip`** را دانلود و اجرا کنید.
+2. تمام فونت‌ها، آیکون‌ها و صداهای آلارم در داخل فایل `.exe` قرار دارند.
 
-### ۲. نصب و اجرا از طریق `npm` (نسخه کلاسیک v1.0.3 — ویندوز و لینوکس)
-```bash
-# نصب سراسری (Global)
+**روش ب — نصب با `npm`:**
+```powershell
 npm install -g persian-clock-widget
-
-# اجرای ویجت
 persian-clock
-# یا:
-persian-clock-widget
 ```
 یا اجرای بدون نصب دائمی:
-```bash
+```powershell
 npx persian-clock-widget
 ```
 
-### ۳. نسخه‌ها و Releases موجود
+---
+
+### 🐧 ۲. لینوکس (Ubuntu / Debian / Mint / Fedora / Arch / Manjaro)
+> پیش‌نیاز در توزیع‌های لینوکس فقط `python3` و `python3-tk` است (برای پخش صدای آلارم می‌توانید `mpv` را هم نصب کنید):
+> - **Ubuntu / Debian / Mint:** `sudo apt update && sudo apt install -y python3 python3-tk mpv`
+> - **Fedora:** `sudo dnf install -y python3 python3-tkinter mpv`
+> - **Arch / Manjaro:** `sudo pacman -S python tk mpv`
+
+**روش الف — نصب با بسته `.deb` (اوبونتو، دبیان، لینوکس مینت، Pop!_OS، کالی):**
+```bash
+sudo apt update
+sudo apt install ./persian-clock-widget_2.0.0_all.deb
+persian-clock-widget
+```
+
+**روش ب — اسکریپت نصب خودکار روی تمام توزیع‌ها:**
+```bash
+chmod +x PersianClockWidget-Linux-Installer.sh
+bash PersianClockWidget-Linux-Installer.sh
+```
+
+**روش ج — نسخه پرتابل بدون نصب (`tar.gz`):**
+```bash
+tar -xzf PersianClockWidget-linux-portable.tar.gz
+cd persian-clock-widget
+./scripts/run_linux.sh
+```
+
+**روش د — نصب با `npm`:**
+```bash
+npm install -g persian-clock-widget
+persian-clock
+```
+
+---
+
+### 🍎 ۳. مک (macOS — Apple Silicon & Intel)
+1. ابتدا پیش‌نیاز `python-tk` را با Homebrew نصب کنید:
+```bash
+brew install python python-tk
+```
+2. سپس با **`npm`** نصب و اجرا کنید:
+```bash
+npm install -g persian-clock-widget
+persian-clock
+```
+یا با `npx`:
+```bash
+npx persian-clock-widget
+```
+**یا اجرا از سورس کد در مک:**
+```bash
+git clone https://github.com/ShayanBamyar97/persian-clock-widget.git
+cd persian-clock-widget
+python3 main.py
+```
+
+> **نکته:** قابلیت «جایگزینی ساعت در تسک‌بار» مخصوص سیستم‌عامل ویندوز است؛ سایر امکانات (ویجت دسکتاپ، تقویم شمسی، آلارم‌ها، پایش و قفل IP، ابزارهای برنامه‌نویسان و سرویس هوش مصنوعی) در لینوکس و macOS هم قابل استفاده هستند.
+
+---
+
+### 📦 ۴. نسخه‌ها و Releases موجود
 
 | نسخه | شاخه (`Branch`) | روش نصب / دانلود | توضیحات |
 | :--- | :--- | :--- | :--- |

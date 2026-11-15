@@ -40,6 +40,8 @@ if (!pyBin) {
   console.error("Error: Python 3 is required on this platform.");
   if (process.platform === "linux") {
     console.error("Install it with: sudo apt install python3 python3-tk");
+  } else if (process.platform === "darwin") {
+    console.error("Install it with: brew install python python-tk");
   }
   process.exit(1);
 }
@@ -51,6 +53,8 @@ if (tkCheck.status !== 0) {
     console.error("  Ubuntu/Debian: sudo apt update && sudo apt install -y python3-tk");
     console.error("  Fedora:        sudo dnf install -y python3-tkinter");
     console.error("  Arch/Manjaro:  sudo pacman -S tk");
+  } else if (process.platform === "darwin") {
+    console.error("  macOS (Homebrew): brew install python-tk");
   }
   process.exit(1);
 }
