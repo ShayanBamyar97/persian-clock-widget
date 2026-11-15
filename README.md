@@ -61,6 +61,8 @@
 
 پروژه با ساختار ماژولار و استاندارد زیر سازماندهی شده است و فایل اجرایی مستقل در پوشه مجزای `release/` قرار دارد:
 
+<div dir="ltr">
+
 ```text
 persian-clock-widget/
 ├── assets/                        # منابع گرافیکی، فونت‌ها و فایل‌های صوتی باندل‌شده
@@ -115,6 +117,8 @@ persian-clock-widget/
 └── README.md                      # مستندات کامل پروژه
 ```
 
+</div>
+
 ---
 
 ## 🚀 راهنمای نصب و دانلود (Windows / Linux / macOS)
@@ -140,6 +144,8 @@ persian-clock-widget/
 
 #### روش ب — نصب نسخه کلاسیک (`v1.0.3`) از طریق `npm` (مناسب `win-x64` و `win-x86`)
 > 💻 **محیط اجرا: Windows PowerShell (یا Windows Terminal)**
+<div dir="ltr">
+
 ```powershell
 # نصب سراسری نسخه کلاسیک v1.0.3
 npm install -g persian-clock-widget@1.0.3
@@ -148,16 +154,24 @@ npm install -g persian-clock-widget@1.0.3
 persian-clock
 ```
 
+</div>
+
 > 💻 **محیط اجرا: Windows PowerShell — اجرای سریع بدون نصب دائمی (`npx`)**
+<div dir="ltr">
+
 ```powershell
 npx persian-clock-widget@1.0.3
 ```
+
+</div>
 
 ---
 
 ### 🐧 ۲. لینوکس (Ubuntu / Debian / Mint / Fedora / Arch / Manjaro)
 
 > 🐧 **محیط اجرا: Linux Terminal (Bash) — نصب پیش‌نیازهای سیستم (فقط بار اول)**
+<div dir="ltr">
+
 ```bash
 # Ubuntu / Debian / Linux Mint:
 sudo apt update && sudo apt install -y python3 python3-tk mpv
@@ -169,24 +183,36 @@ sudo dnf install -y python3 python3-tkinter mpv
 sudo pacman -S python tk mpv
 ```
 
+</div>
+
 #### روش الف — نصب با بسته `.deb` (Ubuntu / Debian / Mint / Pop!_OS)
 > 🐧 **محیط اجرا: Linux Terminal (Bash)**
+<div dir="ltr">
+
 ```bash
 wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-all.deb
 sudo apt install ./PersianClockWidget-v2.0.0-linux-all.deb
 persian-clock-widget
 ```
 
+</div>
+
 #### روش ب — نصب تک‌فایلی خودکار روی همه توزیع‌ها (`.sh`)
 > 🐧 **محیط اجرا: Linux Terminal (Bash)**
+<div dir="ltr">
+
 ```bash
 wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-installer.sh
 chmod +x PersianClockWidget-v2.0.0-linux-installer.sh
 bash PersianClockWidget-v2.0.0-linux-installer.sh
 ```
 
+</div>
+
 #### روش ج — اجرای پرتابل بدون نصب (`.tar.gz`)
 > 🐧 **محیط اجرا: Linux Terminal (Bash)**
+<div dir="ltr">
+
 ```bash
 wget https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-linux-portable.tar.gz
 tar -xzf PersianClockWidget-v2.0.0-linux-portable.tar.gz
@@ -194,24 +220,36 @@ cd persian-clock-widget
 ./scripts/run_linux.sh
 ```
 
+</div>
+
 #### روش د — نصب نسخه کلاسیک (`v1.0.3`) با `npm` در لینوکس
 > 🐧 **محیط اجرا: Linux Terminal (Bash)**
+<div dir="ltr">
+
 ```bash
 npm install -g persian-clock-widget@1.0.3
 persian-clock
 ```
+
+</div>
 
 ---
 
 ### 🍎 ۳. مک (macOS — Apple Silicon & Intel)
 
 > 🍎 **محیط اجرا: macOS Terminal (Zsh / Bash) — نصب پیش‌نیاز Tkinter**
+<div dir="ltr">
+
 ```bash
 brew install python python-tk
 ```
 
+</div>
+
 #### روش الف — بسته آماده پرتابل مک (`macos-universal`)
 > 🍎 **محیط اجرا: macOS Terminal (Zsh / Bash)**
+<div dir="ltr">
+
 ```bash
 curl -LO https://github.com/ShayanBamyar97/persian-clock-widget/releases/download/v2.0.0/PersianClockWidget-v2.0.0-macos-universal.tar.gz
 tar -xzf PersianClockWidget-v2.0.0-macos-universal.tar.gz
@@ -219,12 +257,18 @@ cd persian-clock-widget
 ./PersianClockWidget.command
 ```
 
+</div>
+
 #### روش ب — نصب نسخه کلاسیک (`v1.0.3`) با `npm` در مک
 > 🍎 **محیط اجرا: macOS Terminal (Zsh / Bash)**
+<div dir="ltr">
+
 ```bash
 npm install -g persian-clock-widget@1.0.3
 persian-clock
 ```
+
+</div>
 
 > **نکته:** قابلیت «جایگزینی ساعت در تسک‌بار» مخصوص سیستم‌عامل ویندوز است؛ سایر امکانات (ویجت دسکتاپ، تقویم شمسی، آلارم‌ها، پایش و قفل IP، ابزارهای برنامه‌نویسان و سرویس هوش مصنوعی) در لینوکس و macOS هم کار می‌کنند.
 
@@ -374,6 +418,8 @@ persian-clock
 
 اگر مایل به اجرای مستقیم از روی سورس کد یا توسعه پروژه هستید:
 
+<div dir="ltr">
+
 ```powershell
 # ۱. نصب پیش‌نیازها
 pip install -r requirements.txt
@@ -382,6 +428,8 @@ pip install -r requirements.txt
 pythonw main.py
 ```
 
+</div>
+
 ---
 
 ## 🛠 نحوه ساخت مجدد فایل اجرایی (`.exe` و خروجی لینوکس)
@@ -389,9 +437,13 @@ pythonw main.py
 ### ویندوز:
 برای کامپایل مجدد پروژه و ساخت فایل تک‌فایلی `PersianClockWidget.exe` در پوشه `release/` (به همراه تعبیه خودکار فونت‌ها، آیکون و صداهای MP3)، کافی است اسکریپت زیر را اجرا کنید:
 
+<div dir="ltr">
+
 ```bat
 scripts\build_exe.bat
 ```
+
+</div>
 پس از اتمام، فایل اجرایی مستقل در مسیر `release\PersianClockWidget.exe` آماده خواهد بود.
 
 ### لینوکس (`Linux`):
